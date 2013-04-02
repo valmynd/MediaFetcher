@@ -1,6 +1,10 @@
+#!/usr/bin/env python
+
 ___license___ = "GPL v3"
+
 from PySide.QtCore import *
 from PySide.QtGui import *
+from gui.table_widgets import *
 
 
 class MainWindow(QMainWindow):
@@ -24,6 +28,8 @@ class MainWindow(QMainWindow):
 		if '//' in text: # contains URL
 			QMessageBox.information(None, "ClipBoard", text);
 
+	def dummy(self):
+		alert(str(self.clipBoardList.getQuality(0)))
 
 	def open(self):
 		fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.currentPath())
@@ -43,7 +49,7 @@ class MainWindow(QMainWindow):
 		self.exitAction = QAction("E&xit", self, shortcut="Ctrl+Q", triggered=self.close)
 		self.toggleStatusBarAction = QAction("Statusbar", self, checkable=True, checked=True,
 												   triggered=self.toggleStatusBar)
-		self.settingsAction = QAction("Prefere&nces", self, triggered=self.open)
+		self.settingsAction = QAction("Prefere&nces", self, triggered=self.dummy)
 		self.aboutAction = QAction("About", self, triggered=self.about)
 		self.searchAction = QAction("Search", self, triggered=self.about)
 
@@ -108,33 +114,13 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabBar)
 
 		# Downloads Tab
-		#vbox.addWidget(item)
-		#btn = self.createPixmapLabel()
-		#grid.addWidget(btn)
-		list = QTableWidget()
-		item = QWidget()
-		item.setLayout(QGridLayout())
-		item.setMaximumHeight(100)
-
-		self.tabBar.addTab(list, "Downloads")
+		self.downLoadList = DownloadTableWidget()
+		self.tabBar.addTab(self.downLoadList, "Downloads")
 
 		# Clipboard Tab
-		self.clipBoardList = QTableWidget()
-		self.clipBoardList.setColumnCount(3)
-		self.clipBoardList.setRowCount(3)
-		self.clipBoardList.setAlternatingRowColors(True)
-		self.clipBoardList.setDragDropMode(self.clipBoardList.InternalMove)
-		self.clipBoardList.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-		self.clipBoardList.setHorizontalHeaderLabels(["Title", "Host", "Quality"])
-		self.clipBoardList.horizontalHeader().setResizeMode(0, QHeaderView.Stretch)
-		self.clipBoardList.setSelectionBehavior(QAbstractItemView.SelectRows)
-		self.clipBoardList.verticalHeader().setDefaultSectionSize(19)
-		self.clipBoardList.verticalHeader().hide()
-		example = QTableWidgetItem("test")
-
-		self.clipBoardList.setItem(0, 0, example)
-
+		self.clipBoardList = ClipBoardTableWidget()
 		self.tabBar.addTab(self.clipBoardList, "Clipboard")
+		self.tabBar.setCurrentIndex(1)
 
 
 if __name__ == '__main__':
