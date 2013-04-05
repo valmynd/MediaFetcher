@@ -4,7 +4,8 @@ ___license___ = "GPL v3"
 
 from PySide.QtCore import *
 from PySide.QtGui import *
-from src.gui.table_widgets import *
+from gui.table_widgets import *
+from extractors import *
 
 
 class MainWindow(QMainWindow):
@@ -123,9 +124,12 @@ class MainWindow(QMainWindow):
 		text = QApplication.clipboard().text()
 		if '//' in text: # contains URL
 			#QMessageBox.information(None, "ClipBoard", text);
-			extractor = MediaExtractor(text)
-			for v in extractor.videos:
-				self.clipBoardList.addRow(title=v['title'], host='Youtube', status='Available', format_options=[], quality_options=[])
+			media = MediaExtractor(text).media
+			#for v in extractor.videos:
+			#	self.clipBoardList.addRow(title=v['title'], host='Youtube', status='Available', format_options=[],
+			#							  quality_options=[])
+			for title in media:
+				self.clipBoardList.addItem(media[title])
 
 	def dummy(self):
 		#alert(str(self.downLoadList.getProgress(0)))

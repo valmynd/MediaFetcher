@@ -94,6 +94,9 @@ class ClipBoardTableWidget(_BaseTableWidget):
 		self.setCellWidget(r, 4, quality_combobox)
 		return r
 
+	#def addItem(self, item = {}):
+	#	"""currently takes a dict, see MediaExtractor in extractors.py!"""
+	#	r = _BaseTableWidget.addRow(self, title, host, status)
 
 class DownloadTableWidget(_BaseTableWidget):
 	_header_titles = ['Filename', 'Host', 'Status', 'Progress']
