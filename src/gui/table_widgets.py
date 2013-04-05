@@ -80,9 +80,6 @@ class _BaseTableWidget(QTableWidget):
 class ClipBoardTableWidget(_BaseTableWidget):
 	_header_titles = ['Title', 'Host', 'Status', 'Format', 'Quality']
 
-	#def __init__(self):
-	#	_BaseTableWidget.__init__(self)
-
 	def _add_row(self, title='', host='', status='', format_options=[], quality_options=[]):
 		r = _BaseTableWidget._add_row(self, title, host, status)
 		format_combobox = QComboBox()
@@ -92,6 +89,8 @@ class ClipBoardTableWidget(_BaseTableWidget):
 			format_combobox.addItem(option)
 		for option in quality_options:
 			quality_combobox.addItem(option)
+		format_combobox.setDisabled(len(format_options) == 1)
+		quality_combobox.setDisabled(len(quality_options) == 1)
 		self.setCellWidget(r, 3, format_combobox)
 		self.setCellWidget(r, 4, quality_combobox)
 		format_combobox.currentIndexChanged['QString'].connect(lambda value, func=self.setFormat: func(r, value))
@@ -113,6 +112,7 @@ class ClipBoardTableWidget(_BaseTableWidget):
 		quality_combobox.clear()
 		for option in self.media[num_row].getQualityOptions(new_format):
 			quality_combobox.addItem(option)
+
 
 class DownloadTableWidget(_BaseTableWidget):
 	_header_titles = ['Filename', 'Host', 'Status', 'Progress']

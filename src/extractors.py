@@ -89,8 +89,9 @@ class MediaExtractor(FileDownloader):
 				media[title] = ClipBoardItem(title=title, host=self.ie.IE_NAME, description=item.get('description'),
 											 thumbnail=item.get('thumbnail'), subtitles=item.get('subtitles'))
 			# Extract relevant Download Options
-			if ' ' in item.get('format'): # e.g. '45 - 720x1280'
-				fid = item.get('format')[:item.get('format').find(' ')]
+			format = item.get('format')
+			if isinstance(format, str) and ' ' in format: # e.g. '45 - 720x1280'
+				fid = format[:format.find(' ')]
 				format = self.ie._video_extensions.get(fid, 'unknown')
 				quality = self.ie._video_dimensions.get(fid, 'unknown')
 			else: # note that 'format' field is optional, see InfoExtractor documentation
@@ -99,8 +100,6 @@ class MediaExtractor(FileDownloader):
 			media[title].addDownloadOption(format=format, quality=quality, url=item.get('url'),
 										   location=item.get('location'), player_url=item.get('player_url'))
 		self.media = media
-		for v in media.values():
-			print(v)
 
 	def getTitles(self):
 		return self.media.keys()
