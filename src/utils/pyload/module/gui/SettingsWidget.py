@@ -198,5 +198,5 @@ class Section(QGroupBox):
             else:
                 i = QLineEdit(self)
                 i.setText(option.value)
-            layout.addRow(option.description, i)
+            layout._add_row(option.description, i)
             layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)

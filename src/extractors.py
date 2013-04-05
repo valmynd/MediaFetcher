@@ -1,10 +1,7 @@
 from utils.youtube_dl.FileDownloader import *
 from utils.youtube_dl.InfoExtractors import gen_extractors
+from lib.items import ClipBoardItem
 
-
-#class FileItem(object):
-#	def __init__(self, title, host, status):
-#		self.host
 
 class MediaExtractor(FileDownloader):
 	def __init__(self, url_or_search_string=''):
@@ -63,48 +60,53 @@ class MediaExtractor(FileDownloader):
 	def _extract(self):
 		"""
 		The following are common fields for a title:
-		host:           IE_NAME (needs to be added to the dictionary here!)
-		id:             Video identifier.
 		title:          Video title, unescaped.
+		host:           IE_NAME (needs to be added to the dictionary here!)
 		thumbnail:      Full URL to a video thumbnail image.
 		description:    One-line video description.
-		uploader:       Full name of the video uploader.
-		upload_date:    Video upload date (YYYYMMDD).
-		uploader_id:    Nickname or id of the video uploader.
 		subtitles:      The subtitle file contents.
 
 		The following fields are specific to a certain Format- and Quality Variant
 		url:            Final video URL.
-		ext:            Video filename extension.
-		format:         The video format, defaults to ext
-		location:       Physical location of the video.
+		location:       Physical location of the video. (???)
 		player_url:     SWF Player URL (used for rtmpdump).
-		urlhandle:      [internal] The urlHandle to be used to download the file,
-						like returned by urllib.request.urlopen
+
+		The following format-specific fields are transformed in this method
+		ext:            Video filename extension. -> becomes 'format'
+		format:         The video format -> optional, becomes 'quality'
+
+		The following fields are currently ignored:
+		id:             Video identifier.
+		uploader:       Full name of the video uploader.
+		upload_date:    Video upload date (YYYYMMDD).
+		uploader_id:    Nickname or id of the video uploader.
+		urlhandle:      [internal] (???)
 		"""
-		format_fields = ['url', 'ext', 'format', 'location', 'player_url', 'urlhandle']
-		common_fields = ['host', 'id', 'title', 'thumbnail', 'description', 'uploader', 'upload_date', 'uploader_id',
-						 'player_url', 'subtitles']
 		media = {}
 		for item in self.videos:
 			title = item['title']
-			item['host'] = self.ie.IE_NAME
-			formatstring = item['format']
-			fid = formatstring[:formatstring.find(' ')]
-			assert fid.isdigit()
-			format = self.ie._video_extensions.get(fid, 'unknown')
-			quality = self.ie._video_dimensions.get(fid, 'unknown')
-			#if 'unknown' not in (format, quality):
-			if title not in media: media[title] = {}
-			if format not in media[title]: media[title][format] = {}
-			media[title][format][quality] = item
-
-		import pprint
-
-		pp = pprint.PrettyPrinter(depth=10)
-		pp.pprint(media)
-
+			if title not in media:
+				media[title] = ClipBoardItem(title=title, host=self.ie.IE_NAME, description=item.get('description'),
+											 thumbnail=item.get('thumbnail'), subtitles=item.get('subtitles'))
+			# Extract relevant Download Options
+			if ' ' in item.get('format'): # e.g. '45 - 720x1280'
+				fid = item.get('format')[:item.get('format').find(' ')]
+				format = self.ie._video_extensions.get(fid, 'unknown')
+				quality = self.ie._video_dimensions.get(fid, 'unknown')
+			else: # note that 'format' field is optional, see InfoExtractor documentation
+				format = quality = 'undefined'
+			# Add Download option to Title
+			media[title].addDownloadOption(format=format, quality=quality, url=item.get('url'),
+										   location=item.get('location'), player_url=item.get('player_url'))
 		self.media = media
+		for v in media.values():
+			print(v)
+
+	def getTitles(self):
+		return self.media.keys()
+
+	def getClipBoardItem(self, title):
+		return self.media[title]
 
 
 if __name__ == '__main__':

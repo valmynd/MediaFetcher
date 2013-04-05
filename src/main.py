@@ -106,10 +106,6 @@ class MainWindow(QMainWindow):
 		# Clipboard Tab
 		self.clipBoardList = ClipBoardTableWidget()
 		#self.clipBoardList.addRow('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		#self.clipBoardList.addRow('test2', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		#self.clipBoardList.addRow('test3', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		#self.clipBoardList.addRow('test4', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		#self.clipBoardList.addRow('test5', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
 		self.tabBar.addTab(self.clipBoardList, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
@@ -124,12 +120,9 @@ class MainWindow(QMainWindow):
 		text = QApplication.clipboard().text()
 		if '//' in text: # contains URL
 			#QMessageBox.information(None, "ClipBoard", text);
-			media = MediaExtractor(text).media
-			#for v in extractor.videos:
-			#	self.clipBoardList.addRow(title=v['title'], host='Youtube', status='Available', format_options=[],
-			#							  quality_options=[])
-			for title in media:
-				self.clipBoardList.addItem(media[title])
+			extractor = MediaExtractor(text)
+			for title in extractor.getTitles():
+				self.clipBoardList.addItem(extractor.getClipBoardItem(title))
 
 	def dummy(self):
 		#alert(str(self.downLoadList.getProgress(0)))

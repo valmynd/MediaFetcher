@@ -70,7 +70,7 @@ class ConnectionManager(QWidget):
 
         form.setAlignment(Qt.AlignRight)
         checkbox = QCheckBox()
-        form.addRow(_("Use internal Core:"), checkbox)
+        form._add_row(_("Use internal Core:"), checkbox)
 
         boxLayout.addLayout(form)
 
