@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
 		self.resize(600, 400)
 		self.statusBar()
 		# monitor Clipboard
-		QObject.connect(QApplication.clipboard(), SIGNAL("dataChanged()"), self, SLOT("clipBoardChanged()"))
+		QApplication.clipboard().dataChanged.connect(self.clipBoardChanged)
 		if QSystemTrayIcon.isSystemTrayAvailable():
 			self.trayIcon.show()
 
@@ -100,12 +100,12 @@ class MainWindow(QMainWindow):
 
 		# Downloads Tab
 		self.downLoadList = DownloadTableWidget()
-		#self.downLoadList.addRow('test1', 'Youtube', 'Available')
+		#self.downLoadList._add_row('test1', 'Youtube', 'Available')
 		self.tabBar.addTab(self.downLoadList, "Downloads")
 
 		# Clipboard Tab
-		self.clipBoardList = ClipBoardTableWidget()
-		#self.clipBoardList.addRow('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
+		self.clipBoardList = ClipBoardTableWidget(self.downLoadList)
+		#self.clipBoardList._add_row('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
 		self.tabBar.addTab(self.clipBoardList, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 

@@ -14,12 +14,10 @@ class _BaseTableWidget(QTableWidget):
 
 	def __init__(self, *args, **kwargs):
 		QTableWidget.__init__(self, *args, **kwargs)
-		# mapping title => ClipBoardItem (resp. DownloadItem)
-		self.media = []
 
 		# Basic Configuration
 		self.setAlternatingRowColors(True)
-		self.setDragDropMode(self.InternalMove)
+		#self.setDragDropMode(self.InternalMove)
 		self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
 		self.setShowGrid(False)
@@ -80,6 +78,33 @@ class _BaseTableWidget(QTableWidget):
 class ClipBoardTableWidget(_BaseTableWidget):
 	_header_titles = ['Title', 'Host', 'Status', 'Format', 'Quality']
 
+	def __init__(self, download_widget):
+		_BaseTableWidget.__init__(self)
+		assert isinstance(download_widget, DownloadTableWidget)
+		self.download_widget = download_widget
+		self.clipboard_items = []
+		self.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.customContextMenuRequested.connect(self.showContextMenu)
+		self.clipBoardMenu = QMenu()
+		download_all = QAction('Download All', self, triggered=self.downloadAll)
+		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
+		#download_all.setIcon(QIcon.fromTheme("list-add"))
+		self.clipBoardMenu.addAction(download_all)
+		self.clipBoardMenu.addAction(download_selected)
+
+	def showContextMenu(self, pos):
+		globalPos = self.mapToGlobal(pos)
+		selectedItem = self.clipBoardMenu.exec_(globalPos)
+
+	def downloadAll(self):
+		alert('downloadAll triggered')
+
+	def downloadSelected(self):
+		row_objects = self.selectionModel().selectedRows()
+		for object in row_objects:
+			num_row = object.row()
+			self.download_widget.addItem(self.getDownloadItem(num_row))
+
 	def _add_row(self, title='', host='', status='', format_options=[], quality_options=[]):
 		r = _BaseTableWidget._add_row(self, title, host, status)
 		format_combobox = QComboBox()
@@ -104,21 +129,25 @@ class ClipBoardTableWidget(_BaseTableWidget):
 
 	def addItem(self, item):
 		assert isinstance(item, ClipBoardItem)
-		self.media.append(item)
+		self.clipboard_items.append(item)
 		self._add_row(item.title, item.host, 'Avaiable', item.getExtensions(), item.getDefaultQualityOptions())
 
 	def setFormat(self, num_row, new_format):
 		quality_combobox = self.cellWidget(num_row, 4)
 		quality_combobox.clear()
-		for option in self.media[num_row].getQualityOptions(new_format):
+		for option in self.clipboard_items[num_row].getQualityOptions(new_format):
 			quality_combobox.addItem(option)
 
+	def getDownloadItem(self, num_row):
+		item = self.clipboard_items[num_row].getDownloadItem(self.getFormat(num_row), self.getQuality(num_row))
+		item.filename = self.getTitle(num_row)
+		return item
 
 class DownloadTableWidget(_BaseTableWidget):
 	_header_titles = ['Filename', 'Host', 'Status', 'Progress']
 
-	def _add_row(self, title='', host='', status='', progress=0):
-		r = _BaseTableWidget._add_row(self, title, host, status)
+	def _add_row(self, filename='', host='', status='', progress=0):
+		r = _BaseTableWidget._add_row(self, filename, host, status)
 		progress_widget = QProgressBar()
 		progress_widget.setValue(progress)
 		self.setCellWidget(r, 3, progress_widget)
@@ -126,3 +155,7 @@ class DownloadTableWidget(_BaseTableWidget):
 
 	def getProgress(self, num_row):
 		return self.cellWidget(num_row, 3).value()
+
+	def addItem(self, item):
+		assert isinstance(item, DownloadItem)
+		self._add_row(item.filename, item.clipboard_item.host, 'Avaiable', 0)

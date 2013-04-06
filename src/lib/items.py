@@ -4,11 +4,12 @@ pp = pprint.PrettyPrinter(depth=10)
 
 
 class DownloadItem(object):
-	def __init__(self, url, location, player_url, filename='undefined'):
+	def __init__(self, url, location, player_url, filename='undefined', clipboard_item=None):
 		self.url = url
 		self.location = location
 		self.player_url = player_url
 		self.filename = filename
+		self.clipboard_item = clipboard_item
 
 
 class ClipBoardItem(object):
@@ -27,7 +28,8 @@ class ClipBoardItem(object):
 			return
 		if format not in self.formats:
 			self.formats[format] = {}
-		self.formats[format][quality] = DownloadItem(url=url, location=location, player_url=player_url)
+		self.formats[format][quality] = DownloadItem(url=url, location=location, player_url=player_url,
+													 clipboard_item=self)
 
 	def getExtensions(self):
 		return list(self.formats.keys())
