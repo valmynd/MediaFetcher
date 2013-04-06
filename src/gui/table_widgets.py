@@ -74,6 +74,8 @@ class _BaseTableWidget(QTableWidget):
 	def getHost(self, num_row):
 		return self.item(num_row, 1).text()
 
+	def getSelectedRows(self):
+		return [object.row() for object in self.selectionModel().selectedRows()]
 
 class ClipBoardTableWidget(_BaseTableWidget):
 	_header_titles = ['Title', 'Host', 'Status', 'Format', 'Quality']
@@ -100,10 +102,9 @@ class ClipBoardTableWidget(_BaseTableWidget):
 		alert('downloadAll triggered')
 
 	def downloadSelected(self):
-		row_objects = self.selectionModel().selectedRows()
-		for object in row_objects:
-			num_row = object.row()
+		for num_row in self.getSelectedRows():
 			self.download_widget.addItem(self.getDownloadItem(num_row))
+			self.removeRow(num_row)
 
 	def _add_row(self, title='', host='', status='', format_options=[], quality_options=[]):
 		r = _BaseTableWidget._add_row(self, title, host, status)
@@ -146,6 +147,43 @@ class ClipBoardTableWidget(_BaseTableWidget):
 class DownloadTableWidget(_BaseTableWidget):
 	_header_titles = ['Filename', 'Host', 'Status', 'Progress']
 
+	def __init__(self):
+		_BaseTableWidget.__init__(self)
+		self.download_items = []
+		self.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.customContextMenuRequested.connect(self.showContextMenu)
+		self.downloadMenu = QMenu()
+		info_action = QAction('Info', self, triggered=self.showInfo)
+		self.downloadMenu.addAction(info_action)
+
+	def showContextMenu(self, pos):
+		globalPos = self.mapToGlobal(pos)
+		selectedItem = self.downloadMenu.exec_(globalPos)
+
+	def showInfo(self):
+		for num_row in self.getSelectedRows():
+			download_item = self.download_items[num_row]
+			clipboard_item = download_item.clipboard_item
+			title_label = QLineEdit(clipboard_item.title)
+			description_label = QTextEdit(clipboard_item.description)
+			description_label.setReadOnly(True)
+			title_label.setReadOnly(True)
+			thumbnail_label = QLabel()
+			local_thumbnail = clipboard_item.getThumbnail()
+			if local_thumbnail:
+				thumbnail_label.setPixmap(QPixmap(local_thumbnail))
+			else:
+				thumbnail_label.setText("None")
+			dialog = QDialog()
+			layout = QFormLayout()
+			layout.addRow(QLabel("Title:"), title_label)
+			layout.addRow(QLabel("Description:"), description_label)
+			layout.addRow(QLabel("Thumbnail:"), thumbnail_label)
+			#layout.addRow(QLabel("Subtitles:"), QLabel(str(clipboard_item.subtitles)))
+			#layout.addRow(QLabel("Quality:"), QLabel(download_item))
+			dialog.setLayout(layout)
+			dialog.exec_()
+
 	def _add_row(self, filename='', host='', status='', progress=0):
 		r = _BaseTableWidget._add_row(self, filename, host, status)
 		progress_widget = QProgressBar()
@@ -158,4 +196,5 @@ class DownloadTableWidget(_BaseTableWidget):
 
 	def addItem(self, item):
 		assert isinstance(item, DownloadItem)
+		self.download_items.append(item)
 		self._add_row(item.filename, item.clipboard_item.host, 'Avaiable', 0)

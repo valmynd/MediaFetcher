@@ -109,4 +109,4 @@ class MediaExtractor(FileDownloader):
 
 
 if __name__ == '__main__':
-	fetcher = MediaExtractor('https://www.youtube.com/watch?v=2ssflEr3s44')
+	fetcher = MediaExtractor('https://www.youtube.com/watch?v=vwjNfc6ORTg')

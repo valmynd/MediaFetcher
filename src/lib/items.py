@@ -1,7 +1,9 @@
-import pprint
+from urllib.request import urlopen
+from tempfile import mkdtemp
+from os import path
+import re
 
-pp = pprint.PrettyPrinter(depth=10)
-
+thumbnail_path = mkdtemp(prefix='mf', suffix='thumbnails')
 
 class DownloadItem(object):
 	def __init__(self, url, location, player_url, filename='undefined', clipboard_item=None):
@@ -14,9 +16,10 @@ class DownloadItem(object):
 
 class ClipBoardItem(object):
 	def __init__(self, title, host, description, thumbnail, subtitles):
+		self.thumbnail = thumbnail
+		self._thumbnail_local = None
 		self.host = host
 		self.title = title
-		self.thumbnail = thumbnail
 		self.description = description
 		self.subtitles = subtitles
 		self.formats = {}
@@ -30,6 +33,17 @@ class ClipBoardItem(object):
 			self.formats[format] = {}
 		self.formats[format][quality] = DownloadItem(url=url, location=location, player_url=player_url,
 													 clipboard_item=self)
+
+	def getThumbnail(self):
+		if not isinstance(self.thumbnail, str) or '//' not in self.thumbnail:
+			return ''
+		if self._thumbnail_local is None:
+			tmp_filename = re.sub('[^0-9a-zA-Z]+', '', self.thumbnail)
+			tmp_file_path = path.join(thumbnail_path, tmp_filename)
+			tmp_file = open(tmp_file_path, 'wb')
+			tmp_file.write(urlopen(self.thumbnail).read())
+			self._thumbnail_local = tmp_file_path
+		return self._thumbnail_local
 
 	def getExtensions(self):
 		return list(self.formats.keys())
