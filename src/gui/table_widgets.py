@@ -90,9 +90,11 @@ class ClipBoardTableWidget(_BaseTableWidget):
 		self.clipBoardMenu = QMenu()
 		download_all = QAction('Download All', self, triggered=self.downloadAll)
 		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
+		info_action = QAction('Info', self, triggered=self.download_widget.showInfo)
 		#download_all.setIcon(QIcon.fromTheme("list-add"))
 		self.clipBoardMenu.addAction(download_all)
 		self.clipBoardMenu.addAction(download_selected)
+		self.clipBoardMenu.addAction(info_action)
 
 	def showContextMenu(self, pos):
 		globalPos = self.mapToGlobal(pos)

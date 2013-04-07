@@ -5,6 +5,7 @@ import re
 
 thumbnail_path = mkdtemp(prefix='mf', suffix='thumbnails')
 
+
 class DownloadItem(object):
 	def __init__(self, url, location, player_url, filename='undefined', clipboard_item=None):
 		self.url = url
