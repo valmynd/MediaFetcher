@@ -1,21 +1,16 @@
-import multiprocessing
-import time
-import random
-
+import multiprocessing, time, random
+from PySide.QtCore import *
 from PySide.QtGui import *
 
-def consumer(task_queue):
-	# consumer-processes take tasks from the queue
-	#multiprocessing.Queue().empty()
-	#while not task_queue.empty():
-	while True:
-		msg = task_queue.get()
-		task_queue.task_done()
 
-def producer(result_queue):
-	# producer-processes produce data in some form and put them into a common data structure
-	time.sleep(random.randint(1, 10))
-	result_queue.put("yay")
+def compute(num):
+	print("worker() started as %s" % num)
+	random_number = random.randint(1, 10)
+	if random_number in (2, 4, 6):
+		raise Exception('Random Exception!!')
+	time.sleep(random_number)
+	return num
+
 
 class MainWindow(QMainWindow):
 	def __init__(self):
@@ -28,19 +23,25 @@ class MainWindow(QMainWindow):
 		# Establish communication queues
 		self.task_queue = multiprocessing.JoinableQueue(maxsize=100)
 		self.result_queue = multiprocessing.Queue()
-		self.consumer = multiprocessing.Process(target=consumer, args=(self.task_queue,))
-		self.consumer.daemon = True
 
-	def logResult(self, result):
-		"""
-		This is called whenever time_consumer(i) returns a result.
-		result_list is modified only by the main process, not the pool workers.
-		"""
-		self.result_list.append(result)
+		# Spawn up to X Consumers on Demand (TODO)
+		self.pool = multiprocessing.Pool(processes=4)
 
 	def addTask(self):
-		item = QListWidgetItem("item")
+		num_row = self.list.count()
+		self.pool.apply_async(func=compute, args=(num_row,), callback=self.receiveResult, error_callback=self.receiveException)
+		item = QListWidgetItem("item %d" % num_row)
+		item.setForeground(Qt.gray)
 		self.list.addItem(item)
+
+	def receiveResult(self, result):
+		assert isinstance(result, int)
+		print("end_work(), where result is %s" % result)
+		self.list.item(result).setForeground(Qt.darkGreen)
+
+	def receiveException(self, exception):
+		#assert hasattr(exception, "num") and isinstance(exception.num, int)
+		self.list.item(exception.num).setForeground(Qt.darkRed)
 
 if __name__ == '__main__':
 	import sys

@@ -20,7 +20,7 @@ class Consumer(multiprocessing.Process):
 			answer = next_task()
 			self.task_queue.task_done()
 			self.result_queue.put(answer)
-		return
+			#time.sleep(1)
 
 
 class Task(object):
@@ -53,7 +53,7 @@ if __name__ == '__main__':
 	for i in range(num_jobs):
 		tasks.put(Task(i, i))
 
-	# Add a poison pill for each consumer
+	## Add a poison pill for each consumer
 	for i in range(num_consumers):
 		tasks.put(None)
 
