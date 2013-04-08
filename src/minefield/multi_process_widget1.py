@@ -1,13 +1,15 @@
+#!/usr/bin/env python
+
 import multiprocessing, time, random
 from PySide.QtCore import *
 from PySide.QtGui import *
 
 
 def compute(num):
-	print("worker() started as %s" % num)
-	random_number = random.randint(1, 10)
+	print("worker() started at %d" % num)
+	random_number = random.randint(1, 6)
 	if random_number in (2, 4, 6):
-		raise Exception('Random Exception!!')
+		raise Exception('Random Exception in _%d' % num)
 	time.sleep(random_number)
 	return num
 
@@ -20,16 +22,13 @@ class MainWindow(QMainWindow):
 		self.list = QListWidget()
 		self.setCentralWidget(self.list)
 
-		# Establish communication queues
-		self.task_queue = multiprocessing.JoinableQueue(maxsize=100)
-		self.result_queue = multiprocessing.Queue()
-
-		# Spawn up to X Consumers on Demand (TODO)
+		# Pool of Background Processes
 		self.pool = multiprocessing.Pool(processes=4)
 
 	def addTask(self):
 		num_row = self.list.count()
-		self.pool.apply_async(func=compute, args=(num_row,), callback=self.receiveResult, error_callback=self.receiveException)
+		self.pool.apply_async(func=compute, args=(num_row,), callback=self.receiveResult,
+							  error_callback=self.receiveException)
 		item = QListWidgetItem("item %d" % num_row)
 		item.setForeground(Qt.gray)
 		self.list.addItem(item)
@@ -40,8 +39,15 @@ class MainWindow(QMainWindow):
 		self.list.item(result).setForeground(Qt.darkGreen)
 
 	def receiveException(self, exception):
-		#assert hasattr(exception, "num") and isinstance(exception.num, int)
-		self.list.item(exception.num).setForeground(Qt.darkRed)
+		error = str(exception)
+		_pos = error.find('_') + 1
+		num_row = int(error[_pos:])
+		item = self.list.item(num_row)
+		item.setForeground(Qt.darkRed)
+		item.setText(item.text() + ' Retry...')
+		self.pool.apply_async(func=compute, args=(num_row,), callback=self.receiveResult,
+							  error_callback=self.receiveException)
+
 
 if __name__ == '__main__':
 	import sys
