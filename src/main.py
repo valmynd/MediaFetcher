@@ -2,6 +2,7 @@
 
 ___license___ = "GPL v3"
 
+from multiprocessing import Pool, Queue
 from PySide.QtCore import *
 from PySide.QtGui import *
 from gui.table_widgets import *
@@ -19,10 +20,20 @@ class MainWindow(QMainWindow):
 		self.setWindowTitle("Media Fetcher")
 		self.resize(600, 400)
 		self.statusBar()
+
 		# monitor Clipboard
 		QApplication.clipboard().dataChanged.connect(self.clipBoardChanged)
 		if QSystemTrayIcon.isSystemTrayAvailable():
 			self.trayIcon.show()
+
+		# Pool of Background Processes
+		self.queue = Queue()
+		#self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.queue,))
+
+		# Check for progress periodically
+		self.timer = QTimer()
+		self.timer.timeout.connect(self.updateProgress)
+		self.timer.start(2000)
 
 	def _initActions(self):
 		self.openAction = QAction("&Open...", self, shortcut=QKeySequence.Open, triggered=self.open)
@@ -32,7 +43,7 @@ class MainWindow(QMainWindow):
 											 triggered=self.toggleStatusBar)
 		self.settingsAction = QAction("Prefere&nces", self, triggered=self.dummy)
 		self.aboutAction = QAction("About", self, triggered=self.about)
-		self.searchAction = QAction("Search", self, triggered=self.dummy)
+		self.searchAction = QAction("Search", self, triggered=self.search)
 
 		self.minimizeAction = QAction("Mi&nimize", self, triggered=self.hide)
 		self.maximizeAction = QAction("Ma&ximize", self, triggered=self.showMaximized)
@@ -80,7 +91,7 @@ class MainWindow(QMainWindow):
 		self.toolBar.addAction(self.pauseAction)
 		self.toolBar.addAction(self.settingsAction)
 		self.toolBar.setMovable(False)
-		self.searchAction.setDisabled(True)
+		#self.searchAction.setDisabled(True)
 		self.pauseAction.setDisabled(True) # QPushButton !
 
 	def _initTrayIcon(self):
@@ -114,15 +125,10 @@ class MainWindow(QMainWindow):
 		self.tabBar.tabBar().tabButton(0, QTabBar.RightSide).resize(0, 0)
 		self.tabBar.tabBar().tabButton(1, QTabBar.RightSide).resize(0, 0)
 
-	@Slot()
 	def clipBoardChanged(self):
 		if not QApplication.clipboard().mimeData().hasText(): return
 		text = QApplication.clipboard().text()
-		if '//' in text: # contains URL
-			#QMessageBox.information(None, "ClipBoard", text);
-			extractor = MediaExtractor(text)
-			for title in extractor.getTitles():
-				self.clipBoardList.addItem(extractor.getClipBoardItem(title))
+		self.search(text)
 
 	def dummy(self):
 		#alert(str(self.downLoadList.getProgress(0)))
@@ -136,6 +142,18 @@ class MainWindow(QMainWindow):
 
 	def about(self):
 		QMessageBox.about(self, "About Media Fetcher", "Text")
+
+	def search(self, text=None):
+		if text is None:
+			text = self.searchBar.text().strip()
+		if '//' in text: # contains URL
+			#QMessageBox.information(None, "ClipBoard", text);
+			extractor = MediaExtractor(text)
+			for title in extractor.getTitles():
+				self.clipBoardList.addItem(extractor.getClipBoardItem(title))
+
+	def updateProgress(self):
+		print('updateProgress()')
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()
