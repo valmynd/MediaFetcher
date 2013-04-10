@@ -2,11 +2,9 @@
 
 ___license___ = "GPL v3"
 
-from multiprocessing import Pool, Queue
 from PySide.QtCore import *
 from PySide.QtGui import *
 from gui.table_widgets import *
-from extractors import *
 
 
 class MainWindow(QMainWindow):
@@ -26,14 +24,10 @@ class MainWindow(QMainWindow):
 		if QSystemTrayIcon.isSystemTrayAvailable():
 			self.trayIcon.show()
 
-		# Pool of Background Processes
-		self.queue = Queue()
-		#self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.queue,))
-
 		# Check for progress periodically
-		self.timer = QTimer()
-		self.timer.timeout.connect(self.updateProgress)
-		self.timer.start(2000)
+		#self.timer = QTimer()
+		#self.timer.timeout.connect(self.updateProgress)
+		#self.timer.start(2000)
 
 	def _initActions(self):
 		self.openAction = QAction("&Open...", self, shortcut=QKeySequence.Open, triggered=self.open)
@@ -110,14 +104,14 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabBar)
 
 		# Downloads Tab
-		self.downLoadList = DownloadTableWidget()
+		self.downloadWidget = DownloadTableWidget(self)
 		#self.downLoadList._add_row('test1', 'Youtube', 'Available')
-		self.tabBar.addTab(self.downLoadList, "Downloads")
+		self.tabBar.addTab(self.downloadWidget, "Downloads")
 
 		# Clipboard Tab
-		self.clipBoardList = ClipBoardTableWidget(self.downLoadList)
+		self.clipboardWidget = ClipboardTableWidget(self)
 		#self.clipBoardList._add_row('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		self.tabBar.addTab(self.clipBoardList, "Clipboard")
+		self.tabBar.addTab(self.clipboardWidget, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
 		# Close Button for all Tabs except Downloads, Clipboard
@@ -144,16 +138,17 @@ class MainWindow(QMainWindow):
 		QMessageBox.about(self, "About Media Fetcher", "Text")
 
 	def search(self, text=None):
+		# TODO: ignore/warn/ask when url is already in the clipboard
 		if text is None:
 			text = self.searchBar.text().strip()
 		if '//' in text: # contains URL
-			#QMessageBox.information(None, "ClipBoard", text);
-			extractor = MediaExtractor(text)
-			for title in extractor.getTitles():
-				self.clipBoardList.addItem(extractor.getClipBoardItem(title))
+			self.clipboardWidget.addURL(text)
 
 	def updateProgress(self):
-		print('updateProgress()')
+		#print('updateProgress()')
+		pass
+
+	#self.tabBar.currentWidget().updateProgress()
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()

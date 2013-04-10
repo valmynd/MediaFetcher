@@ -2,18 +2,24 @@ ___license___ = 'GPL v3'
 
 from PySide.QtCore import *
 from PySide.QtGui import *
+from multiprocessing import Pool, Queue
 from lib.items import DownloadItem, ClipBoardItem
+from lib.extractors import extract_url
+from pickle import loads
 
 
 def alert(text):
 	QMessageBox.information(None, 'Alert', str(text))
 
 
-class _BaseTableWidget(QTableWidget):
+class _QueueTableWidget(QTableWidget):
 	_header_titles = []
+	_pool_size = 0
 
-	def __init__(self, *args, **kwargs):
-		QTableWidget.__init__(self, *args, **kwargs)
+	def __init__(self, main_window):
+		QTableWidget.__init__(self)
+		assert isinstance(main_window, QMainWindow)
+		self.parent_widget = main_window
 
 		# Basic Configuration
 		self.setAlternatingRowColors(True)
@@ -42,6 +48,16 @@ class _BaseTableWidget(QTableWidget):
 		# Configure Vertical Header
 		self.verticalHeader().setDefaultSectionSize(22)
 		self.verticalHeader().hide()
+
+		# Every Tab might have a Pool of Background Processes
+		if self._pool_size > 0:
+			self.queue = Queue()
+			self.pool = Pool(processes=self._pool_size, initializer=self._pool_init, initargs=(self.queue,))
+
+	def _pool_init(self, queue):
+		# Assign a Queue to a Function that will run in background here
+		# see http://stackoverflow.com/a/3843313/852994
+		pass
 
 	def _add_row(self, title, host, status):
 		r = self.rowCount()
@@ -77,24 +93,27 @@ class _BaseTableWidget(QTableWidget):
 	def getSelectedRows(self):
 		return [object.row() for object in self.selectionModel().selectedRows()]
 
-class ClipBoardTableWidget(_BaseTableWidget):
-	_header_titles = ['Title', 'Host', 'Status', 'Format', 'Quality']
 
-	def __init__(self, download_widget):
-		_BaseTableWidget.__init__(self)
-		assert isinstance(download_widget, DownloadTableWidget)
-		self.download_widget = download_widget
+class ClipboardTableWidget(_QueueTableWidget):
+	_header_titles = ['Title', 'Host', 'Status', 'Format', 'Quality']
+	_pool_size = 4
+
+	def __init__(self, main_window):
+		_QueueTableWidget.__init__(self, main_window)
 		self.clipboard_items = []
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.showContextMenu)
 		self.clipBoardMenu = QMenu()
 		download_all = QAction('Download All', self, triggered=self.downloadAll)
 		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
-		info_action = QAction('Info', self, triggered=self.download_widget.showInfo)
+		info_action = QAction('Info', self, triggered=self.parent_widget.downloadWidget.showInfo)
 		#download_all.setIcon(QIcon.fromTheme("list-add"))
 		self.clipBoardMenu.addAction(download_all)
 		self.clipBoardMenu.addAction(download_selected)
 		self.clipBoardMenu.addAction(info_action)
+
+	def _pool_init(self, queue):
+		extract_url._queue = queue
 
 	def showContextMenu(self, pos):
 		globalPos = self.mapToGlobal(pos)
@@ -105,11 +124,11 @@ class ClipBoardTableWidget(_BaseTableWidget):
 
 	def downloadSelected(self):
 		for num_row in self.getSelectedRows():
-			self.download_widget.addItem(self.getDownloadItem(num_row))
+			self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
 			self.removeRow(num_row)
 
 	def _add_row(self, title='', host='', status='', format_options=[], quality_options=[]):
-		r = _BaseTableWidget._add_row(self, title, host, status)
+		r = _QueueTableWidget._add_row(self, title, host, status)
 		format_combobox = QComboBox()
 		quality_combobox = QComboBox()
 		#quality_combobox.setStyleSheet('border:0')
@@ -130,11 +149,6 @@ class ClipBoardTableWidget(_BaseTableWidget):
 	def getQuality(self, num_row):
 		return self.cellWidget(num_row, 4).currentText()
 
-	def addItem(self, item):
-		assert isinstance(item, ClipBoardItem)
-		self.clipboard_items.append(item)
-		self._add_row(item.title, item.host, 'Avaiable', item.getExtensions(), item.getDefaultQualityOptions())
-
 	def setFormat(self, num_row, new_format):
 		quality_combobox = self.cellWidget(num_row, 4)
 		quality_combobox.clear()
@@ -146,11 +160,28 @@ class ClipBoardTableWidget(_BaseTableWidget):
 		item.filename = self.getTitle(num_row)
 		return item
 
-class DownloadTableWidget(_BaseTableWidget):
+	def addItem(self, item, status='Available'):
+		assert isinstance(item, ClipBoardItem)
+		self.clipboard_items.append(item)
+		self._add_row(item.title, item.host, status, item.getExtensions(), item.getDefaultQualityOptions())
+
+	def addURL(self, url):
+		self.pool.apply_async(func=extract_url, args=(url,), callback=self.receiveResult)
+		temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
+		self.addItem(temporary_item, 'Extracting')
+
+	def receiveResult(self, pickled_result):
+		extracted_items = loads(pickled_result)
+		for title in extracted_items.getTitles():
+			print(title)
+			self.addItem(extracted_items.getClipBoardItem(title))
+
+
+class DownloadTableWidget(_QueueTableWidget):
 	_header_titles = ['Filename', 'Host', 'Status', 'Progress']
 
-	def __init__(self):
-		_BaseTableWidget.__init__(self)
+	def __init__(self, main_window):
+		_QueueTableWidget.__init__(self, main_window)
 		self.download_items = []
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.showContextMenu)
@@ -187,7 +218,7 @@ class DownloadTableWidget(_BaseTableWidget):
 			dialog.exec_()
 
 	def _add_row(self, filename='', host='', status='', progress=0):
-		r = _BaseTableWidget._add_row(self, filename, host, status)
+		r = _QueueTableWidget._add_row(self, filename, host, status)
 		progress_widget = QProgressBar()
 		progress_widget.setValue(progress)
 		self.setCellWidget(r, 3, progress_widget)

@@ -1,10 +1,10 @@
 from utils.youtube_dl.FileDownloader import *
 from utils.youtube_dl.InfoExtractors import gen_extractors
-from lib.items import ClipBoardItem
-
+from lib.items import ClipBoardItem,ExtractedItems
+from pickle import dumps
 
 class MediaExtractor(FileDownloader):
-	def __init__(self, url_or_search_string=''):
+	def __init__(self, url):
 		FileDownloader.__init__(self,
 								dict(format='all', format_limit=None, ignoreerrors=False, listformats=False,
 									 consoletitle=False, continuedl=True, forcedescription=False, forcefilename=False,
@@ -20,7 +20,9 @@ class MediaExtractor(FileDownloader):
 		# Initialize List of Extractors
 		for extractor in gen_extractors():
 			self.add_info_extractor(extractor)
-		self._download(url_or_search_string)
+
+		# Try Retrieving Information for the URL
+		self._download(url)
 		self._extract()
 
 	def _download(self, url):
@@ -82,14 +84,14 @@ class MediaExtractor(FileDownloader):
 		uploader_id:    Nickname or id of the video uploader.
 		urlhandle:      [internal] (???)
 		"""
-		media = {}
-		for item in self.videos:
-			title = item['title']
-			if title not in media:
-				media[title] = ClipBoardItem(title=title, host=self.ie.IE_NAME, description=item.get('description'),
-											 thumbnail=item.get('thumbnail'), subtitles=item.get('subtitles'))
+		items = ExtractedItems()
+		for instance in self.videos:
+			title = instance['title']
+			if title not in items:
+				items[title] = ClipBoardItem(title=title, host=self.ie.IE_NAME, description=instance.get('description'),
+											 thumbnail=instance.get('thumbnail'), subtitles=instance.get('subtitles'))
 			# Extract relevant Download Options
-			format = item.get('format')
+			format = instance.get('format')
 			if isinstance(format, str) and ' ' in format: # e.g. '45 - 720x1280'
 				fid = format[:format.find(' ')]
 				format = self.ie._video_extensions.get(fid, 'unknown')
@@ -97,16 +99,13 @@ class MediaExtractor(FileDownloader):
 			else: # note that 'format' field is optional, see InfoExtractor documentation
 				format = quality = 'undefined'
 			# Add Download option to Title
-			media[title].addDownloadOption(format=format, quality=quality, url=item.get('url'),
-										   location=item.get('location'), player_url=item.get('player_url'))
-		self.media = media
+			items[title].addDownloadOption(format=format, quality=quality, url=instance.get('url'),
+										   location=instance.get('location'), player_url=instance.get('player_url'))
+		self.items = items
 
-	def getTitles(self):
-		return self.media.keys()
-
-	def getClipBoardItem(self, title):
-		return self.media[title]
-
+def extract_url(url):
+	extractor = MediaExtractor(url)
+	return dumps(extractor.items)
 
 if __name__ == '__main__':
 	fetcher = MediaExtractor('https://www.youtube.com/watch?v=vwjNfc6ORTg')

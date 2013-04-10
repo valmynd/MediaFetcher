@@ -16,7 +16,7 @@ class DownloadItem(object):
 
 
 class ClipBoardItem(object):
-	def __init__(self, title, host, description, thumbnail, subtitles):
+	def __init__(self, title, host="", description="", thumbnail=None, subtitles=[]):
 		self.thumbnail = thumbnail
 		self._thumbnail_local = None
 		self.host = host
@@ -25,7 +25,7 @@ class ClipBoardItem(object):
 		self.subtitles = subtitles
 		self.formats = {}
 
-	def addDownloadOption(self, format, quality, url, location, player_url):
+	def addDownloadOption(self, format="unknown", quality="unknown", url="", location="?", player_url=None):
 		if format == 'unknown':
 			# ignore 'unknown', maybe have a setting for that somewhere?
 			# don't confuse 'unknown' with 'undefined' -> the latter is to be used for sharehosters
@@ -54,8 +54,17 @@ class ClipBoardItem(object):
 
 	def getDefaultQualityOptions(self):
 		# TODO: handle defaults somewhere
+		if not self.formats: return []
 		first_key = self.getExtensions()[0]
 		return self.formats[first_key]
 
 	def getDownloadItem(self, format, quality):
 		return self.formats[format][quality]
+
+
+class ExtractedItems(dict):
+	def getTitles(self):
+		return self.keys()
+
+	def getClipBoardItem(self, title):
+		return self[title]
