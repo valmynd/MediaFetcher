@@ -5,7 +5,9 @@ ___license___ = "GPL v3"
 from PySide.QtCore import *
 from PySide.QtGui import *
 from gui.table_widgets import *
-
+from xml.etree.ElementTree import Element, parse
+from models import ClipBoardModel
+from views import ClipBoardView
 
 class MainWindow(QMainWindow):
 	def __init__(self):
@@ -109,9 +111,12 @@ class MainWindow(QMainWindow):
 		self.tabBar.addTab(self.downloadWidget, "Downloads")
 
 		# Clipboard Tab
-		self.clipboardWidget = ClipboardTableWidget(self)
+		#self.clipboardWidget = ClipboardTableWidget(self)
 		#self.clipBoardList._add_row('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		self.tabBar.addTab(self.clipboardWidget, "Clipboard")
+		tmp = parse("models/clipboard_example.xml").getroot()
+		self.clipboard = ClipBoardModel(tmp)
+		self.clipboard_view = ClipBoardView(self.clipboard)
+		self.tabBar.addTab(self.clipboard_view, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
 		# Close Button for all Tabs except Downloads, Clipboard
@@ -146,9 +151,8 @@ class MainWindow(QMainWindow):
 
 	def updateProgress(self):
 		#print('updateProgress()')
+		#self.tabBar.currentWidget().updateProgress()
 		pass
-
-	#self.tabBar.currentWidget().updateProgress()
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()

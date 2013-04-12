@@ -3,13 +3,20 @@ ___license___ = 'GPL v3'
 from PySide.QtCore import *
 from PySide.QtGui import *
 from multiprocessing import Pool, Queue
-from lib.items import DownloadItem, ClipBoardItem
+from lib.items import DownloadItem, ClipBoardItem, ExtractedItems
 from lib.extractors import extract_url
-from pickle import loads
 
+# DEPRECATED!
 
 def alert(text):
 	QMessageBox.information(None, 'Alert', str(text))
+
+
+class _QFormatComboBox(QComboBox):
+	def __init__(self, quality_combobox, clipboard_item):
+		QComboBox.__init__(self)
+		self.quality_combobox = quality_combobox
+		self.clipboard_item = clipboard_item
 
 
 class _QueueTableWidget(QTableWidget):
@@ -72,6 +79,11 @@ class _QueueTableWidget(QTableWidget):
 		self.setItem(r, 2, status_item)
 		return r
 
+	def getRowByFirstColumn(self, content=''):
+		widget_items = self.findItems(content, Qt.MatchExactly)
+		assert len(widget_items) == 1
+		return widget_items[0].row()
+
 	def toggleColumn(self):
 		column_title = self.sender().text()
 		i = self._header_titles.index(column_title)
@@ -81,17 +93,11 @@ class _QueueTableWidget(QTableWidget):
 		globalPos = self.mapToGlobal(pos)
 		selectedItem = self.columnMenu.exec_(globalPos)
 
-	def getStatus(self, num_row):
-		return self.item(num_row, 2).text()
-
-	def getTitle(self, num_row):
-		return self.item(num_row, 0).text()
-
-	def getHost(self, num_row):
-		return self.item(num_row, 1).text()
-
 	def getSelectedRows(self):
 		return [object.row() for object in self.selectionModel().selectedRows()]
+
+	def updateProgress(self):
+		pass
 
 
 class ClipboardTableWidget(_QueueTableWidget):
@@ -100,7 +106,6 @@ class ClipboardTableWidget(_QueueTableWidget):
 
 	def __init__(self, main_window):
 		_QueueTableWidget.__init__(self, main_window)
-		self.clipboard_items = []
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.showContextMenu)
 		self.clipBoardMenu = QMenu()
@@ -127,11 +132,26 @@ class ClipboardTableWidget(_QueueTableWidget):
 			self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
 			self.removeRow(num_row)
 
-	def _add_row(self, title='', host='', status='', format_options=[], quality_options=[]):
-		r = _QueueTableWidget._add_row(self, title, host, status)
-		format_combobox = QComboBox()
+	def formatChanged(self, index):
+		sender = self.sender()
+		sender.quality_combobox.clear()
+		for option in sender.clipboard_item.getQualityOptions(index):
+			sender.clipboard_item.addItem(option)
+
+	def getDownloadItem(self, num_row):
+		#item = self.clipboard_items[num_row].getDownloadItem(self.getFormat(num_row), self.getQuality(num_row))
+		#item.filename = self.getTitle(num_row)
+		#return item
+		pass
+
+	def addItem(self, item, status='Available'):
+		assert isinstance(item, ClipBoardItem)
+		r = self._add_row(item.title, item.host, status)
 		quality_combobox = QComboBox()
+		format_combobox = _QFormatComboBox(quality_combobox, item)
 		#quality_combobox.setStyleSheet('border:0')
+		format_options = item.getExtensions()
+		quality_options = item.getDefaultQualityOptions()
 		for option in format_options:
 			format_combobox.addItem(option)
 		for option in quality_options:
@@ -140,41 +160,25 @@ class ClipboardTableWidget(_QueueTableWidget):
 		quality_combobox.setDisabled(len(quality_options) == 1)
 		self.setCellWidget(r, 3, format_combobox)
 		self.setCellWidget(r, 4, quality_combobox)
-		format_combobox.currentIndexChanged['QString'].connect(lambda value, func=self.setFormat: func(r, value))
-		return r
-
-	def getFormat(self, num_row):
-		return self.cellWidget(num_row, 3).currentText()
-
-	def getQuality(self, num_row):
-		return self.cellWidget(num_row, 4).currentText()
-
-	def setFormat(self, num_row, new_format):
-		quality_combobox = self.cellWidget(num_row, 4)
-		quality_combobox.clear()
-		for option in self.clipboard_items[num_row].getQualityOptions(new_format):
-			quality_combobox.addItem(option)
-
-	def getDownloadItem(self, num_row):
-		item = self.clipboard_items[num_row].getDownloadItem(self.getFormat(num_row), self.getQuality(num_row))
-		item.filename = self.getTitle(num_row)
-		return item
-
-	def addItem(self, item, status='Available'):
-		assert isinstance(item, ClipBoardItem)
-		self.clipboard_items.append(item)
-		self._add_row(item.title, item.host, status, item.getExtensions(), item.getDefaultQualityOptions())
+		format_combobox.currentIndexChanged.connect(self.formatChanged)
 
 	def addURL(self, url):
-		self.pool.apply_async(func=extract_url, args=(url,), callback=self.receiveResult)
+		self.pool.apply_async(func=extract_url, args=(url,))
 		temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
 		self.addItem(temporary_item, 'Extracting')
 
-	def receiveResult(self, pickled_result):
-		extracted_items = loads(pickled_result)
-		for title in extracted_items.getTitles():
-			print(title)
-			self.addItem(extracted_items.getClipBoardItem(title))
+	def updateProgress(self):
+		if self.queue.empty(): return
+		url, result = self.queue.get()
+		#num_row = self.getRowByFirstColumn(url)
+		if isinstance(result, Exception):
+			#status_widget = self.item(num_row, 2)
+			#status_widget.setText(str(result))
+			return
+		assert isinstance(result, ExtractedItems)
+		for title in result.getTitles():
+			#self.removeRow(num_row)
+			self.addItem(result.getClipBoardItem(title))
 
 
 class DownloadTableWidget(_QueueTableWidget):
@@ -217,17 +221,13 @@ class DownloadTableWidget(_QueueTableWidget):
 			dialog.setLayout(layout)
 			dialog.exec_()
 
-	def _add_row(self, filename='', host='', status='', progress=0):
-		r = _QueueTableWidget._add_row(self, filename, host, status)
-		progress_widget = QProgressBar()
-		progress_widget.setValue(progress)
-		self.setCellWidget(r, 3, progress_widget)
-		return r
-
 	def getProgress(self, num_row):
 		return self.cellWidget(num_row, 3).value()
 
 	def addItem(self, item):
 		assert isinstance(item, DownloadItem)
 		self.download_items.append(item)
-		self._add_row(item.filename, item.clipboard_item.host, 'Avaiable', 0)
+		r = self._add_row(item.filename, item.clipboard_item.host, 'Available')
+		progress_widget = QProgressBar()
+		progress_widget.setValue(0)
+		self.setCellWidget(r, 3, progress_widget)

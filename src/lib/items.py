@@ -50,7 +50,7 @@ class ClipBoardItem(object):
 		return list(self.formats.keys())
 
 	def getQualityOptions(self, format):
-		return self.formats[format]
+		return self.formats.get(format)
 
 	def getDefaultQualityOptions(self):
 		# TODO: handle defaults somewhere

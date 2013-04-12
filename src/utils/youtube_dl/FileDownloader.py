@@ -388,7 +388,11 @@ class FileDownloader(object):
             template_dict = dict(info_dict)
 
             template_dict['epoch'] = int(time.time())
-            template_dict['autonumber'] = '%05d' % self._num_downloads
+            autonumber_size = self.params.get('autonumber_size')
+            if autonumber_size is None:
+                autonumber_size = 5
+            autonumber_templ = '%0' + str(autonumber_size) + 'd'
+            template_dict['autonumber'] = autonumber_templ % self._num_downloads
 
             sanitize = lambda k,v: sanitize_filename(
                 'NA' if v is None else compat_str(v),
@@ -629,7 +633,7 @@ class FileDownloader(object):
             except (IOError, OSError):
                 self.report_warning('Unable to remove downloaded video file')
 
-    def _download_with_rtmpdump(self, filename, url, player_url, page_url):
+    def _download_with_rtmpdump(self, filename, url, player_url, page_url, play_path):
         self.report_destination(filename)
         tmpfilename = self.temp_name(filename)
 
@@ -648,6 +652,8 @@ class FileDownloader(object):
             basic_args += ['-W', player_url]
         if page_url is not None:
             basic_args += ['--pageUrl', page_url]
+        if play_path is not None:
+            basic_args += ['-y', play_path]
         args = basic_args + [[], ['-e', '-k', '1']][self.params.get('continuedl', False)]
         if self.params.get('verbose', False):
             try:
@@ -702,7 +708,8 @@ class FileDownloader(object):
         if url.startswith('rtmp'):
             return self._download_with_rtmpdump(filename, url,
                                                 info_dict.get('player_url', None),
-                                                info_dict.get('page_url', None))
+                                                info_dict.get('page_url', None),
+                                                info_dict.get('play_path', None))
 
         tmpfilename = self.temp_name(filename)
         stream = None

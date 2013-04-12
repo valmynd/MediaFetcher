@@ -115,7 +115,8 @@ class InfoExtractor(object):
         """ Returns the response handle """
         if note is None:
             note = 'Downloading video webpage'
-        self._downloader.to_screen('[%s] %s: %s' % (self.IE_NAME, video_id, note))
+        if note is not False:
+            self._downloader.to_screen('[%s] %s: %s' % (self.IE_NAME, video_id, note))
         try:
             return compat_urllib_request.urlopen(url_or_request)
         except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
@@ -133,6 +134,14 @@ class InfoExtractor(object):
         else:
             encoding = 'utf-8'
         webpage_bytes = urlh.read()
+        if self._downloader.params.get('dump_intermediate_pages', False):
+            try:
+                url = url_or_request.get_full_url()
+            except AttributeError:
+                url = url_or_request
+            self._downloader.to_screen('Dumping request to ' + url)
+            dump = base64.b64encode(webpage_bytes).decode('ascii')
+            self._downloader.to_screen(dump)
         return webpage_bytes.decode(encoding, 'replace')
 
 
@@ -463,18 +472,14 @@ class YoutubeIE(InfoExtractor):
         # Get video info
         self.report_video_info_webpage_download(video_id)
         for el_type in ['&el=embedded', '&el=detailpage', '&el=vevo', '']:
-            video_info_url = ('http://www.youtube.com/get_video_info?&video_id=%s%s&ps=default&eurl=&gl=US&hl=en'
+            video_info_url = ('https://www.youtube.com/get_video_info?&video_id=%s%s&ps=default&eurl=&gl=US&hl=en'
                     % (video_id, el_type))
-            request = compat_urllib_request.Request(video_info_url)
-            try:
-                video_info_webpage_bytes = compat_urllib_request.urlopen(request).read()
-                video_info_webpage = video_info_webpage_bytes.decode('utf-8', 'ignore')
-                video_info = compat_parse_qs(video_info_webpage)
-                if 'token' in video_info:
-                    break
-            except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
-                self._downloader.report_error('unable to download video info webpage: %s' % compat_str(err))
-                return
+            video_info_webpage = self._download_webpage(video_info_url, video_id,
+                                    note=False,
+                                    errnote='unable to download video info webpage')
+            video_info = compat_parse_qs(video_info_webpage)
+            if 'token' in video_info:
+                break
         if 'token' not in video_info:
             if 'reason' in video_info:
                 self._downloader.report_error('YouTube said: %s' % video_info['reason'][0])
@@ -4131,7 +4136,7 @@ class KeekIE(InfoExtractor):
         video_url = 'http://cdn.keek.com/keek/video/%s' % video_id
         thumbnail = 'http://cdn.keek.com/keek/thumbnail/%s/w100/h75' % video_id
         webpage = self._download_webpage(url, video_id)
-        m = re.search(r'<meta property="og:title" content="(?P<title>.+)"', webpage)
+        m = re.search(r'<meta property="og:title" content="(?P<title>.*?)"', webpage)
         title = unescapeHTML(m.group('title'))
         m = re.search(r'<div class="user-name-and-bio">[\S\s]+?<h2>(?P<uploader>.+?)</h2>', webpage)
         uploader = clean_html(m.group('uploader'))
@@ -4356,6 +4361,46 @@ class LiveLeakIE(InfoExtractor):
 
         return [info]
 
+class ARDIE(InfoExtractor):
+    _VALID_URL = r'^(?:https?://)?(?:(?:www\.)?ardmediathek\.de|mediathek\.daserste\.de)/(?:.*/)(?P<video_id>[^/\?]+)(?:\?.*)?'
+    _TITLE = r'<h1(?: class="boxTopHeadline")?>(?P<title>.*)</h1>'
+    _MEDIA_STREAM = r'mediaCollection\.addMediaStream\((?P<media_type>\d+), (?P<quality>\d+), "(?P<rtmp_url>[^"]*)", "(?P<video_url>[^"]*)", "[^"]*"\)'
+
+    def _real_extract(self, url):
+        # determine video id from url
+        m = re.match(self._VALID_URL, url)
+
+        numid = re.search(r'documentId=([0-9]+)', url)
+        if numid:
+            video_id = numid.group(1)
+        else:
+            video_id = m.group('video_id')
+
+        # determine title and media streams from webpage
+        html = self._download_webpage(url, video_id)
+        title = re.search(self._TITLE, html).group('title')
+        streams = [m.groupdict() for m in re.finditer(self._MEDIA_STREAM, html)]
+        if not streams:
+            assert '"fsk"' in html
+            self._downloader.report_error('this video is only available after 8:00 pm')
+            return
+
+        # choose default media type and highest quality for now
+        stream = max([s for s in streams if int(s["media_type"]) == 0],
+                     key=lambda s: int(s["quality"]))
+
+        # there's two possibilities: RTMP stream or HTTP download
+        info = {'id': video_id, 'title': title, 'ext': 'mp4'}
+        if stream['rtmp_url']:
+            self._downloader.to_screen('[%s] RTMP download detected' % self.IE_NAME)
+            assert stream['video_url'].startswith('mp4:')
+            info["url"] = stream["rtmp_url"]
+            info["play_path"] = stream['video_url']
+        else:
+            assert stream["video_url"].endswith('.mp4')
+            info["url"] = stream["video_url"]
+        return [info]
+
 
 def gen_extractors():
     """ Return a list of an instance of every supported extractor.
@@ -4409,5 +4454,6 @@ def gen_extractors():
         MySpassIE(),
         SpiegelIE(),
         LiveLeakIE(),
+        ARDIE(),
         GenericIE()
     ]

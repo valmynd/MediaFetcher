@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<clipboard xsi:noNamespaceSchemaLocation="clipboard.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <item title="Item 1">
+        <subtitle language="English"/>
+        <subtitle language="Danish"/>
+        <format name="mp4">
+            <quality>
+                <url>url</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </quality>
+        </format>
+        <format name="webm">
+            <quality>
+                <url>url</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </quality>
+        </format>
+    </item>
+    <item title="Item 2">
+        <subtitle language="English"/>
+        <subtitle language="German"/>
+        <format name="mp4">
+            <quality>
+                <url>String</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </quality>
+        </format>
+        <format name="webm">
+            <quality>
+                <url>String</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </quality>
+        </format>
+    </item>
+    <package name="Youtube Playlist">
+        <item title="Item 3.1">
+            <subtitle language="String"/>
+            <subtitle language="String"/>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+        </item>
+        <item title="Item 3.2">
+            <subtitle language="String"/>
+            <subtitle language="String"/>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+        </item>
+    </package>
+    <package name="Package 2">
+        <item title="Item 4.1">
+            <subtitle language="String"/>
+            <subtitle language="String"/>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+        </item>
+        <item title="Item 4.2">
+            <subtitle language="String"/>
+            <subtitle language="String"/>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+            <format name="String">
+                <quality>
+                    <url>String</url>
+                    <location>text</location>
+                    <player_url>String</player_url>
+                </quality>
+            </format>
+        </item>
+    </package>
+</clipboard>

@@ -17,3 +17,5 @@ rm vlc_py/*
 rm -rf vlc_py/.git
 touch vlc_py/__init__.py
 touch vlc_py/generated/__init__.py
+# http://modeltest-pyside.googlecode.com/
+wget http://modeltest-pyside.googlecode.com/svn/trunk/ModelTest.py

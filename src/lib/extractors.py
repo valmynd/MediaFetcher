@@ -1,7 +1,8 @@
 from utils.youtube_dl.FileDownloader import *
 from utils.youtube_dl.InfoExtractors import gen_extractors
-from lib.items import ClipBoardItem,ExtractedItems
-from pickle import dumps
+from lib.items import ClipBoardItem, ExtractedItems
+from datetime import date
+
 
 class MediaExtractor(FileDownloader):
 	def __init__(self, url):
@@ -22,6 +23,7 @@ class MediaExtractor(FileDownloader):
 			self.add_info_extractor(extractor)
 
 		# Try Retrieving Information for the URL
+		#raise Exception("Random Error")
 		self._download(url)
 		self._extract()
 
@@ -103,9 +105,14 @@ class MediaExtractor(FileDownloader):
 										   location=instance.get('location'), player_url=instance.get('player_url'))
 		self.items = items
 
+
 def extract_url(url):
-	extractor = MediaExtractor(url)
-	return dumps(extractor.items)
+	try:
+		extractor = MediaExtractor(url)
+		extract_url._queue.put((url, extractor.items))
+	except Exception as e:
+		extract_url._queue.put((url, e))
+
 
 if __name__ == '__main__':
 	fetcher = MediaExtractor('https://www.youtube.com/watch?v=vwjNfc6ORTg')
