@@ -1,66 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
-           attributeFormDefault="unqualified">
-    <xs:element name="clipboard">
-        <xs:annotation>
-            <xs:documentation>root element</xs:documentation>
-        </xs:annotation>
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element name="item" type="itemType" maxOccurs="unbounded"/>
-                <xs:element name="package" maxOccurs="unbounded">
-                    <xs:complexType>
-                        <xs:sequence>
-                            <xs:element name="item" type="itemType" maxOccurs="unbounded"/>
-                        </xs:sequence>
-                        <xs:attribute name="name" use="required"/>
-                    </xs:complexType>
-                </xs:element>
-            </xs:sequence>
-        </xs:complexType>
-    </xs:element>
-    <xs:complexType name="itemType">
-        <xs:sequence>
-            <xs:element name="subtitle" maxOccurs="unbounded">
-                <xs:complexType>
-                    <xs:attribute name="language" type="xs:string" use="required"/>
-                    <xs:attribute name="url" type="xs:string"/>
-                </xs:complexType>
-            </xs:element>
-            <xs:element name="format" maxOccurs="unbounded">
-                <xs:complexType>
-                    <xs:sequence>
-                        <xs:element name="quality">
-                            <xs:complexType>
-                                <xs:sequence>
-                                    <xs:element name="url" type="xs:string"/>
-                                    <xs:element name="location">
-                                        <xs:annotation>
-                                            <xs:documentation>Physical location of the video. (???)</xs:documentation>
-                                        </xs:annotation>
-                                    </xs:element>
-                                    <xs:element name="player_url" type="xs:string">
-                                        <xs:annotation>
-                                            <xs:documentation>SWF Player URL (used for rtmpdump).</xs:documentation>
-                                        </xs:annotation>
-                                    </xs:element>
-                                </xs:sequence>
-                            </xs:complexType>
-                        </xs:element>
-                    </xs:sequence>
-                    <xs:attribute name="name" type="xs:string" use="required"/>
-                    <xs:attribute name="selected" type="xs:boolean"/>
-                </xs:complexType>
-            </xs:element>
-        </xs:sequence>
-        <xs:attribute name="id" type="xs:integer"/>
-        <xs:attribute name="title" type="xs:string" use="required"/>
-        <xs:attribute name="host" type="xs:string"/>
-        <xs:attribute name="description" type="xs:string"/>
-        <xs:attribute name="thumbnail" type="xs:string">
-            <xs:annotation>
-                <xs:documentation>URL for thumbnail</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
-    </xs:complexType>
+<!-- edited with XMLSpy v2013 sp1 (http://www.altova.com) by jhjk (alskfj) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:element name="clipboard">
+		<xs:annotation>
+			<xs:documentation>root element</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="item" type="itemType" maxOccurs="unbounded"/>
+				<xs:element name="package" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="item" type="itemType" maxOccurs="unbounded"/>
+						</xs:sequence>
+						<xs:attribute name="name" use="required"/>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="itemType">
+		<xs:sequence>
+			<xs:element name="subtitle" minOccurs="0" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:attribute name="language" type="xs:string" use="required"/>
+					<xs:attribute name="url" type="xs:string"/>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="format" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="quality">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="url" type="xs:string"/>
+									<xs:element name="location">
+										<xs:annotation>
+											<xs:documentation>Physical location of the video. (???)</xs:documentation>
+										</xs:annotation>
+									</xs:element>
+									<xs:element name="player_url" type="xs:string">
+										<xs:annotation>
+											<xs:documentation>SWF Player URL (used for rtmpdump).</xs:documentation>
+										</xs:annotation>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+					<xs:attribute name="name" type="xs:string" use="required"/>
+					<xs:attribute name="selected" type="xs:boolean"/>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="id" type="xs:integer"/>
+		<xs:attribute name="title" type="xs:string" use="required"/>
+		<xs:attribute name="host" type="xs:string"/>
+		<xs:attribute name="description" type="xs:string"/>
+		<xs:attribute name="thumbnail" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>URL for thumbnail</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:complexType>
 </xs:schema>

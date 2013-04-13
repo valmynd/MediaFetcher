@@ -1,7 +1,8 @@
 from utils.youtube_dl.FileDownloader import *
 from utils.youtube_dl.InfoExtractors import gen_extractors
-from lib.items import ClipBoardItem, ExtractedItems
-from datetime import date
+#from lib.items import ClipBoardItem, ExtractedItems
+#from datetime import date
+from xml.etree.ElementTree import Element, tostring
 
 
 class MediaExtractor(FileDownloader):
@@ -86,33 +87,50 @@ class MediaExtractor(FileDownloader):
 		uploader_id:    Nickname or id of the video uploader.
 		urlhandle:      [internal] (???)
 		"""
-		items = ExtractedItems()
+		items = {} # xml.etree.Element objects by title
 		for instance in self.videos:
 			title = instance['title']
 			if title not in items:
-				items[title] = ClipBoardItem(title=title, host=self.ie.IE_NAME, description=instance.get('description'),
-											 thumbnail=instance.get('thumbnail'), subtitles=instance.get('subtitles'))
+				items[title] = Element('item', title=title, host=self.ie.IE_NAME,
+									   description=str(instance.get('description')),
+									   thumbnail=str(instance.get('thumbnail')))
+				# subtitles=instance.get('subtitles')
+			item = items[title]
 			# Extract relevant Download Options
-			format = instance.get('format')
-			if isinstance(format, str) and ' ' in format: # e.g. '45 - 720x1280'
-				fid = format[:format.find(' ')]
-				format = self.ie._video_extensions.get(fid, 'unknown')
-				quality = self.ie._video_dimensions.get(fid, 'unknown')
-			else: # note that 'format' field is optional, see InfoExtractor documentation
-				format = quality = 'undefined'
-			# Add Download option to Title
-			items[title].addDownloadOption(format=format, quality=quality, url=instance.get('url'),
-										   location=instance.get('location'), player_url=instance.get('player_url'))
-		self.items = items
+			format, quality = self._extract_format(format_str=instance.get('format'))
+			item.append(Element('format', format=format, quality=quality,
+								url=str(instance.get('url')),
+								location=str(instance.get('location')),
+								player_url=str(instance.get('player_url'))))
+		self.clipboard = Element('clipboard')
+		if len(items) == 1:
+			self.clipboard.extend(items.values())
+			return
+		package = Element('package', name="Youtube Playlist") # give more meaningful name!
+		package.extend(items.values())
+		self.clipboard.append(package)
 
+	def _extract_format(self, format_str):
+		# currently, format_str is typically something like '45 - 720x1280' for youtube-dl
+		if isinstance(format_str, str) and ' ' in format_str:
+			fid = format_str[:format_str.find(' ')]
+			format = self.ie._video_extensions.get(fid, 'unknown')
+			quality = self.ie._video_dimensions.get(fid, 'unknown')
+			return format, quality
+		# note that 'format' field is optional, see InfoExtractor documentation
+		return 'undefined', 'undefined'
+
+	def getXML(self):
+		return tostring(self.clipboard, encoding="unicode")
 
 def extract_url(url):
 	try:
 		extractor = MediaExtractor(url)
-		extract_url._queue.put((url, extractor.items))
+		extract_url._queue.put((url, extractor.getXML()))
 	except Exception as e:
 		extract_url._queue.put((url, e))
 
 
 if __name__ == '__main__':
 	fetcher = MediaExtractor('https://www.youtube.com/watch?v=vwjNfc6ORTg')
+	print(fetcher.getXML())

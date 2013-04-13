@@ -35,3 +35,6 @@ class QueueTreeView(QTreeView):
 
 	def showContextMenu(self, pos):
 		raise NotImplementedError
+
+	def updateProgress(self):
+		pass

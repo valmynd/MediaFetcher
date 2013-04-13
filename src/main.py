@@ -5,8 +5,6 @@ ___license___ = "GPL v3"
 from PySide.QtCore import *
 from PySide.QtGui import *
 from gui.table_widgets import *
-from xml.etree.ElementTree import Element, parse
-from models import ClipBoardModel
 from views import ClipBoardView
 
 class MainWindow(QMainWindow):
@@ -27,9 +25,9 @@ class MainWindow(QMainWindow):
 			self.trayIcon.show()
 
 		# Check for progress periodically
-		#self.timer = QTimer()
-		#self.timer.timeout.connect(self.updateProgress)
-		#self.timer.start(2000)
+		self.timer = QTimer()
+		self.timer.timeout.connect(self.updateProgress)
+		self.timer.start(2000)
 
 	def _initActions(self):
 		self.openAction = QAction("&Open...", self, shortcut=QKeySequence.Open, triggered=self.open)
@@ -113,9 +111,7 @@ class MainWindow(QMainWindow):
 		# Clipboard Tab
 		#self.clipboardWidget = ClipboardTableWidget(self)
 		#self.clipBoardList._add_row('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
-		tmp = parse("models/clipboard_example.xml").getroot()
-		self.clipboard = ClipBoardModel(tmp)
-		self.clipboard_view = ClipBoardView(self.clipboard)
+		self.clipboard_view = ClipBoardView()
 		self.tabBar.addTab(self.clipboard_view, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
@@ -147,12 +143,10 @@ class MainWindow(QMainWindow):
 		if text is None:
 			text = self.searchBar.text().strip()
 		if '//' in text: # contains URL
-			self.clipboardWidget.addURL(text)
+			self.clipboard_view.addURL(text)
 
 	def updateProgress(self):
-		#print('updateProgress()')
-		#self.tabBar.currentWidget().updateProgress()
-		pass
+		self.tabBar.currentWidget().updateProgress()
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()

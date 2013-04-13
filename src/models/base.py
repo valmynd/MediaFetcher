@@ -1,13 +1,23 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
+from pprint import pprint
 
 
 class ElementTreeModel(QAbstractItemModel):
+	"""
+	Readonly ItemModel for ElementTree Data structures
+	see https://pypi.python.org/pypi/EuroPython2006_PyQt4_Examples/
+	also read http://qt-project.org/doc/qt-4.8/itemviews-simpletreemodel.html
+	"""
 	_columns = ["Tag", "Attributes"]
 
 	def __init__(self, etree_root_element):
 		QAbstractItemModel.__init__(self)
 		self._root = etree_root_element
+		self.layoutChanged.connect(self._rebuild_index)
+		self._rebuild_index()
+
+	def _rebuild_index(self):
 		self._np = dict((child, (parent, row_index)) for parent in self._root.iter()
 						for row_index, child in enumerate(parent))
 
@@ -40,3 +50,12 @@ class ElementTreeModel(QAbstractItemModel):
 
 	def columnCount(self, parent):
 		return len(self._columns)
+
+
+class QueueModel(ElementTreeModel):
+	def rowCount(self, parent):
+		# Only "package" nodes should have children in the view!
+		item = parent.internalPointer() if parent.isValid() else self._root
+		if item.tag == "item":
+			return 0
+		return len(item)
