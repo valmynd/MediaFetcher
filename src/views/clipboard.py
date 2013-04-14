@@ -7,14 +7,18 @@ from lib.extractors import extract_url
 
 class ComboBoxDelegate(QStyledItemDelegate):
 	def createEditor(self, parent, option, index):
-		combo = QComboBox(parent)
-		combo.addItems(['2', '3', '4'])
-		combo.setMaximumHeight(self.sizeHint(option, index).height())
-		return combo
+		# this method is called after paint()
+		print("createEditor()")
+		clipboard_model = self.parent().model()
+		return clipboard_model._get_combobox(parent, option, index, delegate=self)
 
 	def paint(self, painter, option, index):
-		QStyledItemDelegate.paint(self, painter, option, index) # takes care of background color
-		self.parent().openPersistentEditor(index) # forces the item into "edit" mode
+		# QItemDelegate.paint() takes care of the background color
+		QStyledItemDelegate.paint(self, painter, option, index)
+		element = index.internalPointer()
+		if element.tag == 'item':
+			# force the item into "edit" mode, so the combobox is shown
+			self.parent().openPersistentEditor(index)
 
 
 class ClipBoardView(QueueTreeView):
@@ -56,8 +60,9 @@ class ClipBoardView(QueueTreeView):
 
 	def addURL(self, url):
 		self.pool.apply_async(func=extract_url, args=(url,))
-		#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
-		#self.addItem(temporary_item, 'Extracting')
+
+	#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
+	#self.addItem(temporary_item, 'Extracting')
 
 	def updateProgress(self):
 		if self.queue.empty(): return

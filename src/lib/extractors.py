@@ -87,8 +87,9 @@ class MediaExtractor(FileDownloader):
 		uploader_id:    Nickname or id of the video uploader.
 		urlhandle:      [internal] (???)
 		"""
-		items = {} # xml.etree.Element objects by title
+		items = {} # xml.etree.Element 'item' objects by title
 		for instance in self.videos:
+			formats = {} # xml.etree.Element 'format' objects by (title, extension)
 			title = instance['title']
 			if title not in items:
 				items[title] = Element('item', title=title, host=self.ie.IE_NAME,
@@ -97,11 +98,12 @@ class MediaExtractor(FileDownloader):
 				# subtitles=instance.get('subtitles')
 			item = items[title]
 			# Extract relevant Download Options
-			format, quality = self._extract_format(format_str=instance.get('format'))
-			item.append(Element('format', format=format, quality=quality,
-								url=str(instance.get('url')),
-								location=str(instance.get('location')),
-								player_url=str(instance.get('player_url'))))
+			extension, quality = self._extract_format(format_str=instance.get('format'))
+			if extension not in formats:
+				formats[extension] = Element('format', extension=extension)
+				item.append(formats[extension])
+			format = formats[extension]
+			format.append(Element('option', quality=quality, url=str(instance.get('url')), location=str(instance.get('location')), player_url=str(instance.get('player_url'))))
 		self.clipboard = Element('clipboard')
 		if len(items) == 1:
 			self.clipboard.extend(items.values())

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<clipboard>
+	<item description="Album: Demo&#10;Street punk from Bangkok, TH" host="youtube" thumbnail="https://i3.ytimg.com/vi/vwjNfc6ORTg/default.jpg" title="Bangkok Alcohol - Thailand Street Punk">
+		<format extension="unknown">
+			<option location="None" player_url="None" quality="480x854" url=""/>
+		</format>
+		<format extension="webm">
+			<option location="None" player_url="None" quality="480x854" url=""/>
+		</format>
+		<format extension="unknown">
+			<option location="None" player_url="None" quality="360x640" url=""/>
+		</format>
+		<format extension="mp4">
+			<option location="None" player_url="None" quality="360x640" url=""/>
+		</format>
+		<format extension="webm">
+			<option location="None" player_url="None" quality="360x640" url=""/>
+		</format>
+		<format extension="unknown">
+			<option location="None" player_url="None" quality="240x400" url=""/>
+		</format>
+		<format extension="mp4">
+			<option location="None" player_url="None" quality="144x176" url=""/>
+		</format>
+	</item>
+</clipboard>

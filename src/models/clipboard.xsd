@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- edited with XMLSpy v2013 sp1 (http://www.altova.com) by jhjk (alskfj) -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 	<xs:element name="clipboard">
 		<xs:annotation>
@@ -24,32 +23,51 @@
 			<xs:element name="subtitle" minOccurs="0" maxOccurs="unbounded">
 				<xs:complexType>
 					<xs:attribute name="language" type="xs:string" use="required"/>
-					<xs:attribute name="url" type="xs:string"/>
+					<xs:attribute name="url" type="xs:string">
+						<xs:annotation>
+							<xs:documentation>link to the subtitle file</xs:documentation>
+						</xs:annotation>
+					</xs:attribute>
 				</xs:complexType>
 			</xs:element>
 			<xs:element name="format" maxOccurs="unbounded">
 				<xs:complexType>
 					<xs:sequence>
-						<xs:element name="quality">
+						<xs:element name="option">
 							<xs:complexType>
-								<xs:sequence>
-									<xs:element name="url" type="xs:string"/>
-									<xs:element name="location">
-										<xs:annotation>
-											<xs:documentation>Physical location of the video. (???)</xs:documentation>
-										</xs:annotation>
-									</xs:element>
-									<xs:element name="player_url" type="xs:string">
-										<xs:annotation>
-											<xs:documentation>SWF Player URL (used for rtmpdump).</xs:documentation>
-										</xs:annotation>
-									</xs:element>
-								</xs:sequence>
+								<xs:attribute name="quality" type="xs:string" use="required">
+									<xs:annotation>
+										<xs:documentation>e.g. 720p</xs:documentation>
+									</xs:annotation>
+								</xs:attribute>
+								<xs:attribute name="url" type="xs:string" use="required">
+									<xs:annotation>
+										<xs:documentation>link to the actual file</xs:documentation>
+									</xs:annotation>
+								</xs:attribute>
+								<xs:attribute name="location" type="xs:string">
+									<xs:annotation>
+										<xs:documentation>Physical location of the video. (???)</xs:documentation>
+									</xs:annotation>
+								</xs:attribute>
+								<xs:attribute name="player_url" type="xs:string">
+									<xs:annotation>
+										<xs:documentation>SWF Player URL (used for rtmpdump).</xs:documentation>
+									</xs:annotation>
+								</xs:attribute>
 							</xs:complexType>
 						</xs:element>
 					</xs:sequence>
-					<xs:attribute name="name" type="xs:string" use="required"/>
-					<xs:attribute name="selected" type="xs:boolean"/>
+					<xs:attribute name="extension" type="xs:string" use="required">
+						<xs:annotation>
+							<xs:documentation>file extension, e.g. flv</xs:documentation>
+						</xs:annotation>
+					</xs:attribute>
+					<xs:attribute name="selected" type="xs:string">
+						<xs:annotation>
+							<xs:documentation>currently selected quality, e.g. 720p</xs:documentation>
+						</xs:annotation>
+					</xs:attribute>
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
@@ -60,6 +78,11 @@
 		<xs:attribute name="thumbnail" type="xs:string">
 			<xs:annotation>
 				<xs:documentation>URL for thumbnail</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="selected" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>currently selected format, e.g. flv</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 	</xs:complexType>

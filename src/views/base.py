@@ -7,10 +7,6 @@ class QueueTreeView(QTreeView):
 		QTreeView.__init__(self)
 		self.setModel(model)
 
-		# Basic Configuration
-		self.setAlternatingRowColors(True)
-		self.setSelectionBehavior(QAbstractItemView.SelectRows)
-
 		# Configure Header
 		self.header().setContextMenuPolicy(Qt.CustomContextMenu)
 		self.header().customContextMenuRequested.connect(self.chooseColumns)
@@ -23,6 +19,12 @@ class QueueTreeView(QTreeView):
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.showContextMenu)
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
+
+		# Other basic configuration
+		#self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
+		self.header().setMaximumHeight(21)
+		self.setSelectionBehavior(QAbstractItemView.SelectRows)
+
 
 	def toggleColumn(self):
 		column_title = self.sender().text()

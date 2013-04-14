@@ -3,74 +3,87 @@
     <item title="Item 1">
         <subtitle language="English"/>
         <subtitle language="Danish"/>
-        <format name="mp4">
-            <quality>
+        <format extension="mp4">
+            <option quality="320*280">
                 <url>url</url>
                 <location>text</location>
                 <player_url>String</player_url>
-            </quality>
-        </format>
-        <format name="webm">
-            <quality>
+            </option>
+            <option quality="720*480">
                 <url>url</url>
                 <location>text</location>
                 <player_url>String</player_url>
-            </quality>
+            </option>
         </format>
     </item>
     <item title="Item 2">
         <subtitle language="English"/>
         <subtitle language="German"/>
-        <format name="mp4">
-            <quality>
+        <format extension="mp4">
+            <option quality="320*280">
                 <url>String</url>
                 <location>text</location>
                 <player_url>String</player_url>
-            </quality>
+            </option>
+            <option quality="120*180">
+                <url>url</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </option>
+            <option quality="720*480">
+                <url>url</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </option>
         </format>
-        <format name="webm">
-            <quality>
-                <url>String</url>
+        <format extension="webm">
+            <option quality="120*180">
+                <url>url</url>
                 <location>text</location>
                 <player_url>String</player_url>
-            </quality>
+            </option>
+            <option quality="720*480">
+                <url>url</url>
+                <location>text</location>
+                <player_url>String</player_url>
+            </option>
         </format>
     </item>
     <package name="Youtube Playlist">
         <item title="Item 3.1">
             <subtitle language="String"/>
             <subtitle language="String"/>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="320*280">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="720*480">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
         </item>
         <item title="Item 3.2">
             <subtitle language="String"/>
             <subtitle language="String"/>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="320*280">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="720*480">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
         </item>
     </package>
@@ -78,37 +91,37 @@
         <item title="Item 4.1">
             <subtitle language="String"/>
             <subtitle language="String"/>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="320*280">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="720*480">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
         </item>
         <item title="Item 4.2">
             <subtitle language="String"/>
             <subtitle language="String"/>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="320*280">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
-            <format name="String">
-                <quality>
+            <format extension="String">
+                <option quality="720*480">
                     <url>String</url>
                     <location>text</location>
                     <player_url>String</player_url>
-                </quality>
+                </option>
             </format>
         </item>
     </package>
