@@ -1,9 +1,26 @@
 from models.base import *
-import copy
 # TODO: store list of shown columns, etc
 
 class ClipBoardModel(QueueModel):
 	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality']
+
+	def _rebuild_index(self):
+		# overridden so every 'item' becomes a dict assigned to it like this: {extension: {quality: 'option'-Element}}
+		# for example, one could access a download option like this: element.format['flv']['720p']
+		QueueModel._rebuild_index(self)
+		# the following can be replaced with the in python3.3: element.findall(".//item")
+		# ... but it is not too common yet and I don't want hard dependency on lxml (although lxml is great)
+		all_items = list(self._root.iterfind('item'))
+		for package in self._root.iterfind('package'):
+			all_items += list(package.iterfind('item'))
+		for item in all_items:
+			item.formats = {}
+			for format in item.iterfind('format'):
+				extension = format.attrib["extension"]
+				item.formats[extension] = {}
+				for option in format.iterfind('option'):
+					quality = option.attrib["quality"]
+					item.formats[extension][quality] = option
 
 	def flags(self, index):
 		if index.column() == 0:
@@ -26,55 +43,16 @@ class ClipBoardModel(QueueModel):
 				return element.attrib["name"]
 
 	def setData(self, index, value, role):
-		if role != Qt.EditRole: return False
-		element = index.internalPointer()
 		num_col = index.column()
+		if num_col != 0 or role != Qt.EditRole or value == "":
+			return QueueModel.setData(self, index, value, role)
+		element = index.internalPointer()
 		if element.tag == 'item':
-			if num_col == 0:
-				element.attrib["title"] = value
+			element.attrib["title"] = value
 		elif element.tag == 'package':
-			if num_col == 0:
-				if value == "": return False
-				element.attrib["name"] = value
+			element.attrib["name"] = value
 		self.dataChanged.emit(index, index)
 		return True
-
-	def _get_format_options(self, element):
-		return [format.attrib["name"] for format in element.iterfind('format')]
-
-	def _get_quality_options(self, element):
-		# same as _get_format_options(), except here we must know which format is selected
-		selected = element.get("selected", element.find("format").attrib["name"])
-		print(selected)
-		# the following will work with python3.3: element.findall(".//*[@name='webm']")
-		for format in element.iterfind('format'):
-			if format.attrib.get("name") == selected:
-				return [option.attrib["quality"] for option in format.iterfind('option')]
-		return []
-
-	def _get_combobox(self, parent, option, index, delegate):
-		num_col = index.column()
-		element = index.internalPointer()
-		combo = QComboBox(parent)
-		combo.element = element # needed in _format_changed(), TODO: find better solution
-		if num_col == 3:
-			combo.addItems(self._get_format_options(element))
-			combo.currentIndexChanged.connect(self._format_changed)
-			element.format_combobox = combo # dirty trick, TODO: find better solution
-		elif num_col == 4:
-			combo.addItems(self._get_quality_options(element))
-			element.quality_combobox = combo # dirty trick, TODO: find better solution
-		combo.setMaximumHeight(delegate.sizeHint(option, index).height())
-		return combo
-
-	def _format_changed(self, index):
-		print("_format_changed %s" % self.sender())
-		format_combobox = self.sender()
-		element = format_combobox.element
-		quality_combobox = element.quality_combobox
-		element.set("selected", format_combobox.currentText())
-		quality_combobox.clear()
-		quality_combobox.addItems(self._get_quality_options(element))
 
 	def merge(self, root):
 		self._root.extend(list(root))

@@ -3,7 +3,6 @@ ___license___ = 'GPL v3'
 from PySide.QtCore import *
 from PySide.QtGui import *
 from multiprocessing import Pool, Queue
-from lib.items import DownloadItem, ClipBoardItem, ExtractedItems
 from lib.extractors import extract_url
 
 # DEPRECATED!
@@ -100,87 +99,6 @@ class _QueueTableWidget(QTableWidget):
 		pass
 
 
-class ClipboardTableWidget(_QueueTableWidget):
-	_header_titles = ['Title', 'Host', 'Status', 'Format', 'Quality']
-	_pool_size = 4
-
-	def __init__(self, main_window):
-		_QueueTableWidget.__init__(self, main_window)
-		self.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.customContextMenuRequested.connect(self.showContextMenu)
-		self.clipBoardMenu = QMenu()
-		download_all = QAction('Download All', self, triggered=self.downloadAll)
-		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
-		info_action = QAction('Info', self, triggered=self.parent_widget.downloadWidget.showInfo)
-		#download_all.setIcon(QIcon.fromTheme("list-add"))
-		self.clipBoardMenu.addAction(download_all)
-		self.clipBoardMenu.addAction(download_selected)
-		self.clipBoardMenu.addAction(info_action)
-
-	def _pool_init(self, queue):
-		extract_url._queue = queue
-
-	def showContextMenu(self, pos):
-		globalPos = self.mapToGlobal(pos)
-		selectedItem = self.clipBoardMenu.exec_(globalPos)
-
-	def downloadAll(self):
-		alert('downloadAll triggered')
-
-	def downloadSelected(self):
-		for num_row in self.getSelectedRows():
-			self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
-			self.removeRow(num_row)
-
-	def formatChanged(self, index):
-		sender = self.sender()
-		sender.quality_combobox.clear()
-		for option in sender.clipboard_item.getQualityOptions(index):
-			sender.clipboard_item.addItem(option)
-
-	def getDownloadItem(self, num_row):
-		#item = self.clipboard_items[num_row].getDownloadItem(self.getFormat(num_row), self.getQuality(num_row))
-		#item.filename = self.getTitle(num_row)
-		#return item
-		pass
-
-	def addItem(self, item, status='Available'):
-		assert isinstance(item, ClipBoardItem)
-		r = self._add_row(item.title, item.host, status)
-		quality_combobox = QComboBox()
-		format_combobox = _QFormatComboBox(quality_combobox, item)
-		#quality_combobox.setStyleSheet('border:0')
-		format_options = item.getExtensions()
-		quality_options = item.getDefaultQualityOptions()
-		for option in format_options:
-			format_combobox.addItem(option)
-		for option in quality_options:
-			quality_combobox.addItem(option)
-		format_combobox.setDisabled(len(format_options) == 1)
-		quality_combobox.setDisabled(len(quality_options) == 1)
-		self.setCellWidget(r, 3, format_combobox)
-		self.setCellWidget(r, 4, quality_combobox)
-		format_combobox.currentIndexChanged.connect(self.formatChanged)
-
-	def addURL(self, url):
-		self.pool.apply_async(func=extract_url, args=(url,))
-		temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
-		self.addItem(temporary_item, 'Extracting')
-
-	def updateProgress(self):
-		if self.queue.empty(): return
-		url, result = self.queue.get()
-		#num_row = self.getRowByFirstColumn(url)
-		if isinstance(result, Exception):
-			#status_widget = self.item(num_row, 2)
-			#status_widget.setText(str(result))
-			return
-		assert isinstance(result, ExtractedItems)
-		for title in result.getTitles():
-			#self.removeRow(num_row)
-			self.addItem(result.getClipBoardItem(title))
-
-
 class DownloadTableWidget(_QueueTableWidget):
 	_header_titles = ['Filename', 'Host', 'Status', 'Progress']
 
@@ -225,7 +143,7 @@ class DownloadTableWidget(_QueueTableWidget):
 		return self.cellWidget(num_row, 3).value()
 
 	def addItem(self, item):
-		assert isinstance(item, DownloadItem)
+		#assert isinstance(item, DownloadItem)
 		self.download_items.append(item)
 		r = self._add_row(item.filename, item.clipboard_item.host, 'Available')
 		progress_widget = QProgressBar()

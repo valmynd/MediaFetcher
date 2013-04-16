@@ -7,10 +7,36 @@ from lib.extractors import extract_url
 
 class ComboBoxDelegate(QStyledItemDelegate):
 	def createEditor(self, parent, option, index):
-		# this method is called after paint()
-		print("createEditor()")
-		clipboard_model = self.parent().model()
-		return clipboard_model._get_combobox(parent, option, index, delegate=self)
+		num_col = index.column()
+		element = index.internalPointer()
+		if num_col == 3:
+			combo = QComboBox(parent)
+			combo.addItems(list(element.formats.keys()))
+			combo.currentIndexChanged.connect(self._format_changed)
+			element.format_combobox = combo # dirty trick, TODO: find better solution
+		elif num_col == 4:
+			combo = QComboBox(parent)
+			# same as above, except here we must know which format is selected
+			selected = element.get("selected", element.find("format").attrib["extension"])
+			# the following will work with python3.3: element.findall(".//*[@name='webm']")
+			combo.addItems(list(element.formats[selected].keys()))
+			element.quality_combobox = combo # dirty trick, TODO: find better solution
+			combo.currentIndexChanged.connect(self._quality_changed)
+		combo.setMaximumHeight(self.sizeHint(option, index).height())
+		combo.element = element # needed in _format_changed(), TODO: find better solution
+		return combo
+
+	def _format_changed(self, index):
+		format_combobox = self.sender()
+		element = format_combobox.element
+		quality_combobox = element.quality_combobox
+		element.set("selected", format_combobox.currentText())
+		quality_combobox.clear()
+		selected = element.get("selected", element.find("format").attrib["extension"])
+		quality_combobox.addItems(list(element.formats[selected].keys()))
+
+	def _quality_changed(self, index):
+		pass
 
 	def paint(self, painter, option, index):
 		# QItemDelegate.paint() takes care of the background color
@@ -23,8 +49,8 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 class ClipBoardView(QueueTreeView):
 	def __init__(self):
-		tmp = Element("clipboard")
-		#tmp = parse("models/clipboard_example.xml").getroot()
+		#tmp = Element("clipboard")
+		tmp = parse("models/clipboard_example.xml").getroot()
 		model = ClipBoardModel(tmp)
 		QueueTreeView.__init__(self, model)
 		self.setItemDelegateForColumn(3, ComboBoxDelegate(self))

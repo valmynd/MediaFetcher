@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT clipboard (item+, package+)>
+<!ELEMENT item (subtitle*, format+)>
+<!ATTLIST item
+	id NMTOKEN #IMPLIED
+	title CDATA #REQUIRED
+	host CDATA #IMPLIED
+	description CDATA #IMPLIED
+	thumbnail CDATA #IMPLIED
+	selected CDATA #IMPLIED
+>
+<!ELEMENT package (item+)>
+<!ATTLIST package
+	name CDATA #REQUIRED
+>
+<!ATTLIST item
+	id NMTOKEN #IMPLIED
+	title CDATA #REQUIRED
+	host CDATA #IMPLIED
+	description CDATA #IMPLIED
+	thumbnail CDATA #IMPLIED
+	selected CDATA #IMPLIED
+>
+<!ELEMENT subtitle EMPTY>
+<!ATTLIST subtitle
+	language CDATA #REQUIRED
+	url CDATA #IMPLIED
+>
+<!ELEMENT format (option)>
+<!ATTLIST format
+	extension CDATA #REQUIRED
+	selected CDATA #IMPLIED
+>
+<!ELEMENT option EMPTY>
+<!ATTLIST option
+	quality CDATA #REQUIRED
+	url CDATA #REQUIRED
+	location CDATA #IMPLIED
+	player_url CDATA #IMPLIED
+>

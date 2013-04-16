@@ -2,7 +2,12 @@ from utils.youtube_dl.FileDownloader import *
 from utils.youtube_dl.InfoExtractors import gen_extractors
 #from lib.items import ClipBoardItem, ExtractedItems
 #from datetime import date
-from xml.etree.ElementTree import Element, tostring
+#from xml.etree.ElementTree import Element, tostring
+from lxml.etree import Element, ElementBase, tostring
+
+class ItemElement(ElementBase):
+	def honking(self):
+		print("")
 
 
 class MediaExtractor(FileDownloader):

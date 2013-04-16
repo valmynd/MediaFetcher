@@ -2,8 +2,9 @@ from urllib.request import urlopen
 from tempfile import mkdtemp
 from os import path
 import re
+from xml.etree.ElementTree import *
 
-thumbnail_path = mkdtemp(prefix='mf', suffix='thumbnails')
+#thumbnail_path = mkdtemp(prefix='mf', suffix='thumbnails')
 
 
 class DownloadItem(object):
@@ -13,17 +14,6 @@ class DownloadItem(object):
 		self.player_url = player_url
 		self.filename = filename
 		self.clipboard_item = clipboard_item
-
-
-class ClipBoardItem(object):
-	def __init__(self, title, host="", description="", thumbnail=None, subtitles=[]):
-		self.thumbnail = thumbnail
-		self._thumbnail_local = None
-		self.host = host
-		self.title = title
-		self.description = description
-		self.subtitles = subtitles
-		self.formats = {}
 
 	def addDownloadOption(self, format="unknown", quality="unknown", url="", location="?", player_url=None):
 		if format == 'unknown':
@@ -61,10 +51,27 @@ class ClipBoardItem(object):
 	def getDownloadItem(self, format, quality):
 		return self.formats[format][quality]
 
+def get_all_items(root_element):
+	all_items = list(root_element.iterfind('item'))
+	for package in root_element.iterfind('package'):
+		all_items += list(package.iterfind('item'))
+	return all_items
 
-class ExtractedItems(dict):
-	def getTitles(self):
-		return self.keys()
+def post_parse(root_element):
+	for item in get_all_items(root_element):
+		item.formats = {}
+		for format in item.iterfind('format'):
+			extension = format.attrib["extension"]
+			item.formats[extension] = {}
+			for option in format.iterfind('option'):
+				quality = option.attrib["quality"]
+				item.formats[extension][quality] = option
 
-	def getClipBoardItem(self, title):
-		return self[title]
+if __name__ == '__main__':
+	#from xml.etree.ElementTree import parse, tostring
+	root = parse("../models/clipboard_example.xml").getroot()
+	post_parse(root)
+	for item in get_all_items(root):
+		print(item.formats)
+
+	#print(tostring(root, encoding="unicode"))
