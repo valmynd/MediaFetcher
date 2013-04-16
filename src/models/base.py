@@ -1,6 +1,5 @@
 from PySide.QtCore import *
-from PySide.QtGui import *
-from pprint import pprint
+from xml.etree.ElementTree import Element, ElementTree, XMLParser, TreeBuilder, tostring
 
 
 class ElementTreeModel(QAbstractItemModel):
@@ -18,8 +17,9 @@ class ElementTreeModel(QAbstractItemModel):
 		self._rebuild_index()
 
 	def _rebuild_index(self):
-		self._np = dict((child, (parent, row_index)) for parent in self._root.iter()
-						for row_index, child in enumerate(parent))
+		self._np = dict((child, (parent, row_index))
+		                for parent in self._root.iter()
+		                for row_index, child in enumerate(parent))
 
 	def data(self, index, role):
 		if not (index.isValid() and role == Qt.DisplayRole): return
@@ -52,10 +52,51 @@ class ElementTreeModel(QAbstractItemModel):
 		return len(self._columns)
 
 
+class QueueItemElement(Element):
+	def _init(self):
+		"""by the time the constructor is called, there would be no children yet, thus _init() shall be implemented"""
+		pass
+
+	@classmethod
+	def _element_factory(cls, tag, attrib, **extra):
+		if tag == 'item':
+			return cls(tag, attrib, **extra)
+		return Element(tag, attrib, **extra)
+
+	@classmethod
+	def fromstring(cls, string_containing_xml):
+		"""replacement for xml.etree.ElementTree.fromstring() taking care of custom Element initialization"""
+		parser = XMLParser(target=TreeBuilder(element_factory=cls._element_factory))
+		parser.feed(string_containing_xml)
+		root_element = parser.close()
+		# the following can be replaced with the in python3.3: element.findall(".//item")
+		# ... but it is not too common yet and I don't want hard dependency on lxml
+		for item in root_element.iterfind('item'):
+			item._init()
+		for package in root_element.iterfind('package'):
+			for item in package.iterfind('item'):
+				item._init()
+		return root_element
+
+	@classmethod
+	def fromfile(cls, path_to_xml_file):
+		"""replacement for xml.etree.ElementTree.parse() taking care of custom Element initialization"""
+		with open(path_to_xml_file, 'r') as file:
+			string_containing_xml = file.read()
+		return cls.fromstring(string_containing_xml)
+
+
 class QueueModel(ElementTreeModel):
-	def rowCount(self, parent):
+	_element_cls = QueueItemElement
+
+	def __init__(self, path_to_xml_file):
+		"""other than ElementTreeModel(), QueueModel() does take a path to an XML file as a parameter"""
+		root = self._element_cls.fromfile(path_to_xml_file)
+		ElementTreeModel.__init__(self, root)
+
+	def _rebuild_index(self):
 		# Only "package" nodes should have children in the view!
-		item = parent.internalPointer() if parent.isValid() else self._root
-		if item.tag == "item":
-			return 0
-		return len(item)
+		self._np = dict((child, (parent, row_index))
+		                for parent in self._root.iter()
+		                for row_index, child in enumerate(parent)
+		                if child.tag in ("package", "item"))

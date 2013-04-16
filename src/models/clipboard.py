@@ -1,26 +1,37 @@
 from models.base import *
-# TODO: store list of shown columns, etc
+
+
+class ClipBoardItemElement(QueueItemElement):
+	def __init__(self, tag, attrib, **extra):
+		QueueItemElement.__init__(self, tag, attrib, **extra)
+		# the following attributes are meant to be accessed from the outside:
+		self.formats = {} # for example, one could access a download option like this: element.format['flv']['720p']
+		self.format_combobox = None
+		self.quality_combobox = None
+
+	def _init(self):
+		for format in self.iterfind('format'):
+			extension = format.attrib["extension"]
+			self.formats[extension] = {}
+			for option in format.iterfind('option'):
+				quality = option.attrib["quality"]
+				self.formats[extension][quality] = option
+
+	def getThumbnail(self):
+		#if not isinstance(self.thumbnail, str) or '//' not in self.thumbnail:
+		#	return ''
+		#if self._thumbnail_local is None:
+		#	tmp_filename = re.sub('[^0-9a-zA-Z]+', '', self.thumbnail)
+		#	tmp_file_path = path.join(thumbnail_path, tmp_filename)
+		#	tmp_file = open(tmp_file_path, 'wb')
+		#	tmp_file.write(urlopen(self.thumbnail).read())
+		#	self._thumbnail_local = tmp_file_path
+		#return self._thumbnail_local
+		pass
 
 class ClipBoardModel(QueueModel):
 	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality']
-
-	def _rebuild_index(self):
-		# overridden so every 'item' becomes a dict assigned to it like this: {extension: {quality: 'option'-Element}}
-		# for example, one could access a download option like this: element.format['flv']['720p']
-		QueueModel._rebuild_index(self)
-		# the following can be replaced with the in python3.3: element.findall(".//item")
-		# ... but it is not too common yet and I don't want hard dependency on lxml (although lxml is great)
-		all_items = list(self._root.iterfind('item'))
-		for package in self._root.iterfind('package'):
-			all_items += list(package.iterfind('item'))
-		for item in all_items:
-			item.formats = {}
-			for format in item.iterfind('format'):
-				extension = format.attrib["extension"]
-				item.formats[extension] = {}
-				for option in format.iterfind('option'):
-					quality = option.attrib["quality"]
-					item.formats[extension][quality] = option
+	_element_cls = ClipBoardItemElement
 
 	def flags(self, index):
 		if index.column() == 0:
@@ -57,3 +68,12 @@ class ClipBoardModel(QueueModel):
 	def merge(self, root):
 		self._root.extend(list(root))
 		self.layoutChanged.emit()
+
+
+if __name__ == '__main__':
+	#from xml.etree.ElementTree import parse, tostring
+	model = ClipBoardModel("../models/clipboard_example.xml")
+	for element in model._root:
+		if element.tag == 'item':
+			print(element.formats)
+			#print(tostring(root, encoding="unicode"))

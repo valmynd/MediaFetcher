@@ -1,6 +1,5 @@
 from views.base import *
-from models import ClipBoardModel
-from xml.etree.ElementTree import Element, parse, fromstring
+from models import ClipBoardModel, ClipBoardItemElement
 from multiprocessing import Pool, Queue
 from lib.extractors import extract_url
 
@@ -49,9 +48,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 class ClipBoardView(QueueTreeView):
 	def __init__(self):
-		#tmp = Element("clipboard")
-		tmp = parse("models/clipboard_example.xml").getroot()
-		model = ClipBoardModel(tmp)
+		model = ClipBoardModel("models/clipboard_example.xml")
 		QueueTreeView.__init__(self, model)
 		self.setItemDelegateForColumn(3, ComboBoxDelegate(self))
 		self.setItemDelegateForColumn(4, ComboBoxDelegate(self))
@@ -86,9 +83,8 @@ class ClipBoardView(QueueTreeView):
 
 	def addURL(self, url):
 		self.pool.apply_async(func=extract_url, args=(url,))
-
-	#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
-	#self.addItem(temporary_item, 'Extracting')
+		#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
+		#self.addItem(temporary_item, 'Extracting')
 
 	def updateProgress(self):
 		if self.queue.empty(): return
@@ -96,5 +92,5 @@ class ClipBoardView(QueueTreeView):
 		if isinstance(result, Exception):
 			print(result)
 			return
-		element = fromstring(result)
-		self.model().merge(element)
+			#element = fromstring(result)
+			#self.model().merge(element)
