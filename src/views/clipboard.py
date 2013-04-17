@@ -8,34 +8,28 @@ class ComboBoxDelegate(QStyledItemDelegate):
 	def createEditor(self, parent, option, index):
 		num_col = index.column()
 		element = index.internalPointer()
+		selected_extension = element.getSelectedExtension()
 		if num_col == 3:
-			combo = QComboBox(parent)
-			combo.addItems(list(element.formats.keys()))
-			combo.currentIndexChanged.connect(self._format_changed)
-			element.format_combobox = combo # dirty trick, TODO: find better solution
+			combo = element.format_combobox # see ClipBoardItemElement
+			combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
 		elif num_col == 4:
-			combo = QComboBox(parent)
-			# same as above, except here we must know which format is selected
-			selected = element.get("selected", element.find("format").attrib["extension"])
-			# the following will work with python3.3: element.findall(".//*[@name='webm']")
-			combo.addItems(list(element.formats[selected].keys()))
-			element.quality_combobox = combo # dirty trick, TODO: find better solution
-			combo.currentIndexChanged.connect(self._quality_changed)
+			combo = element.quality_combobox # see ClipBoardItemElement
+			combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
 		combo.setMaximumHeight(self.sizeHint(option, index).height())
-		combo.element = element # needed in _format_changed(), TODO: find better solution
+		combo.setParent(parent)
 		return combo
 
-	def _format_changed(self, index):
-		format_combobox = self.sender()
-		element = format_combobox.element
+	def _format_changed(self, element):
+		format_combobox = element.format_combobox
 		quality_combobox = element.quality_combobox
-		element.set("selected", format_combobox.currentText())
+		selected = format_combobox.currentText()
+		element.set("selected", selected)
 		quality_combobox.clear()
-		selected = element.get("selected", element.find("format").attrib["extension"])
-		quality_combobox.addItems(list(element.formats[selected].keys()))
+		quality_combobox.addItems(element.getQualityOptions(selected))
 
-	def _quality_changed(self, index):
-		pass
+	def _quality_changed(self, element):
+		selected_extension = element.get("selected")
+		#print(selected_extension)
 
 	def paint(self, painter, option, index):
 		# QItemDelegate.paint() takes care of the background color
@@ -56,7 +50,7 @@ class ClipBoardView(QueueTreeView):
 		self.clipBoardMenu = QMenu()
 		download_all = QAction('Download All', self, triggered=self.downloadAll)
 		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
-		info_action = QAction('Info', self)#, triggered=self.parent_widget.downloadWidget.showInfo)
+		info_action = QAction('Info', self, triggered=self.showInfo)
 		self.clipBoardMenu.addAction(download_all)
 		self.clipBoardMenu.addAction(download_selected)
 		self.clipBoardMenu.addAction(info_action)
@@ -85,6 +79,14 @@ class ClipBoardView(QueueTreeView):
 		self.pool.apply_async(func=extract_url, args=(url,))
 		#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
 		#self.addItem(temporary_item, 'Extracting')
+
+	def showInfo(self):
+		mapper = QDataWidgetMapper
+		mapper.setModel(self.model())
+		#mapper.addMapping(mySpinBox, 0)
+		#mapper.addMapping(myLineEdit, 1)
+		#mapper.addMapping(myCountryChooser, 2)
+		mapper.toFirst()
 
 	def updateProgress(self):
 		if self.queue.empty(): return

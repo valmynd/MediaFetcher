@@ -94,9 +94,15 @@ class QueueModel(ElementTreeModel):
 		root = self._element_cls.fromfile(path_to_xml_file)
 		ElementTreeModel.__init__(self, root)
 
-	def _rebuild_index(self):
+	def rowCount(self, parent):
 		# Only "package" nodes should have children in the view!
+		item = parent.internalPointer() if parent.isValid() else self._root
+		if item.tag == "item":
+			return 0
+		return len(item)
+
+	def _rebuild_index(self):
 		self._np = dict((child, (parent, row_index))
 		                for parent in self._root.iter()
 		                for row_index, child in enumerate(parent)
-		                if child.tag in ("package", "item"))
+		                if parent.tag in ("clipboard", "package")) # (don't know if that does speedup lookups)
