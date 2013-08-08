@@ -44,7 +44,7 @@ def update_self(to_screen, verbose, filename):
 
 
     if not isinstance(globals().get('__loader__'), zipimporter) and not hasattr(sys, "frozen"):
-        to_screen('It looks like you installed youtube-dl with pip, setup.py or a tarball. Please use that to update.')
+        to_screen('It looks like you installed youtube-dl with a package manager, pip, setup.py or a tarball. Please use that to update.')
         return
 
     # Check if there is a new version
@@ -78,7 +78,7 @@ def update_self(to_screen, verbose, filename):
     to_screen('Updating to version ' + versions_info['latest'] + '...')
     version = versions_info['versions'][versions_info['latest']]
 
-    print_notes(versions_info['versions'])
+    print_notes(to_screen, versions_info['versions'])
 
     if not os.access(filename, os.W_OK):
         to_screen('ERROR: no write permissions on %s' % filename)
@@ -157,11 +157,15 @@ del "%s"
 
     to_screen('Updated youtube-dl. Restart youtube-dl to use the new version.')
 
-def print_notes(versions, fromVersion=__version__):
+def get_notes(versions, fromVersion):
     notes = []
     for v,vdata in sorted(versions.items()):
         if v > fromVersion:
             notes.extend(vdata.get('notes', []))
+    return notes
+
+def print_notes(to_screen, versions, fromVersion=__version__):
+    notes = get_notes(versions, fromVersion)
     if notes:
         to_screen('PLEASE NOTE:')
         for note in notes:

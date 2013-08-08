@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-
-
 import os
 import subprocess
 import sys
@@ -85,8 +80,9 @@ class FFmpegPostProcessor(PostProcessor):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout,stderr = p.communicate()
         if p.returncode != 0:
+            stderr = stderr.decode('utf-8', 'replace')
             msg = stderr.strip().split('\n')[-1]
-            raise FFmpegPostProcessorError(msg.decode('utf-8', 'replace'))
+            raise FFmpegPostProcessorError(msg)
 
     def _ffmpeg_filename_argument(self, fn):
         # ffmpeg broke --, see https://ffmpeg.org/trac/ffmpeg/ticket/2127 for details
@@ -104,7 +100,8 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
         self._nopostoverwrites = nopostoverwrites
 
     def get_audio_codec(self, path):
-        if not self._exes['ffprobe'] and not self._exes['avprobe']: return None
+        if not self._exes['ffprobe'] and not self._exes['avprobe']:
+            raise PostProcessingError('ffprobe or avprobe not found. Please install one.')
         try:
             cmd = [self._exes['avprobe'] or self._exes['ffprobe'], '-show_streams', encodeFilename(self._ffmpeg_filename_argument(path))]
             handle = subprocess.Popen(cmd, stderr=compat_subprocess_get_DEVNULL(), stdout=subprocess.PIPE)
@@ -188,6 +185,11 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
 
         prefix, sep, ext = path.rpartition('.') # not os.path.splitext, since the latter does not work on unicode in all setups
         new_path = prefix + sep + extension
+
+        # If we download foo.mp3 and convert it to... foo.mp3, then don't delete foo.mp3, silly.
+        if new_path == path:
+            self._nopostoverwrites = True
+
         try:
             if self._nopostoverwrites and os.path.exists(encodeFilename(new_path)):
                 self._downloader.to_screen('[youtube] Post-process file %s exists, skipping' % new_path)
@@ -207,10 +209,10 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
             try:
                 os.utime(encodeFilename(new_path), (time.time(), information['filetime']))
             except:
-                self._downloader.to_stderr('WARNING: Cannot update utime of audio file')
+                self._downloader.report_warning('Cannot update utime of audio file')
 
         information['filepath'] = new_path
-        return False,information
+        return self._nopostoverwrites,information
 
 class FFmpegVideoConvertor(FFmpegPostProcessor):
     def __init__(self, downloader=None,preferedformat=None):
