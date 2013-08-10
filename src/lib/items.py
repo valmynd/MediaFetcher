@@ -22,19 +22,13 @@ class DownloadItem(object):
 			return
 		if format not in self.formats:
 			self.formats[format] = {}
-		self.formats[format][quality] = DownloadItem(url=url, location=location, player_url=player_url,
-													 clipboard_item=self)
+		self.formats[format][quality] = DownloadItem(url=url,
+																	location=location,
+																	player_url=player_url,
+																	clipboard_item=self)
 
 	def getThumbnail(self):
-		if not isinstance(self.thumbnail, str) or '//' not in self.thumbnail:
-			return ''
-		if self._thumbnail_local is None:
-			tmp_filename = re.sub('[^0-9a-zA-Z]+', '', self.thumbnail)
-			tmp_file_path = path.join(thumbnail_path, tmp_filename)
-			tmp_file = open(tmp_file_path, 'wb')
-			tmp_file.write(urlopen(self.thumbnail).read())
-			self._thumbnail_local = tmp_file_path
-		return self._thumbnail_local
+		pass
 
 	def getExtensions(self):
 		return list(self.formats.keys())
@@ -51,11 +45,13 @@ class DownloadItem(object):
 	def getDownloadItem(self, format, quality):
 		return self.formats[format][quality]
 
+
 def get_all_items(root_element):
 	all_items = list(root_element.iterfind('item'))
 	for package in root_element.iterfind('package'):
 		all_items += list(package.iterfind('item'))
 	return all_items
+
 
 def post_parse(root_element):
 	for item in get_all_items(root_element):
@@ -67,6 +63,7 @@ def post_parse(root_element):
 				quality = option.attrib["quality"]
 				item.formats[extension][quality] = option
 
+
 if __name__ == '__main__':
 	#from xml.etree.ElementTree import parse, tostring
 	root = parse("../models/clipboard_example.xml").getroot()
@@ -74,4 +71,4 @@ if __name__ == '__main__':
 	for item in get_all_items(root):
 		print(item.formats)
 
-	#print(tostring(root, encoding="unicode"))
+		#print(tostring(root, encoding="unicode"))

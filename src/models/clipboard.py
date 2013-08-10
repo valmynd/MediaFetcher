@@ -7,68 +7,42 @@ if not os.path.exists(thumbnail_path):
 	os.mkdir(thumbnail_path)
 
 
-class ClipBoardItemElement:
-	def __init__(self, tag, attrib, **extra):
-		#QueueItemElement.__init__(self, tag, attrib, **extra)
-		# the following attributes are meant to be accessed from anywhere:
-		self.formats = {} # initialized via _init(): access a download option like this: element.format['flv']['720p']
-		self.format_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
-		self.quality_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
-		# those attributes however should only be accessed via the respective methods:
-		self._thumbnail_local = None
-
-	def _init(self):
-		# initialize format dict with information from child Elements
-		for format in self.iterfind('format'):
-			extension = format.attrib["extension"]
-			self.formats[extension] = {}
-			for option in format.iterfind('option'):
-				quality = option.attrib["quality"]
-				self.formats[extension][quality] = option
-		# initialize combobox widgets
-		selected_extension = self.getSelectedExtension()
-		selected_quality = self.getSelectedQuality(selected_extension)
-		self.format_combobox.addItems(self.getExtensions())
-		self.format_combobox.setCurrentIndex(self.format_combobox.findText(selected_extension))
-		self.quality_combobox.addItems(self.getQualityOptions(extension=selected_extension))
-		self.quality_combobox.setCurrentIndex(self.quality_combobox.findText(selected_quality))
-
-		#print(self.format_combobox.findText(selected_extension))
-		self.format_combobox.setCurrentIndex(2)
-
-	def getExtensions(self):
-		return list(self.formats.keys())
-
-	def getSelectedExtension(self):
-		# fallback: take the first which got parsed from XML
-		return self.get("selected", self.find("format").attrib["extension"])
-
-	def getQualityOptions(self, extension):
-		return list(self.formats[extension].keys())
-
-	def getSelectedQuality(self, extension):
-		# same as in getSelectedExtension; TODO: make default-fallback configurable
-		for format in self.iterfind('format'):
-			if format.attrib["extension"] == extension:
-				return format.get("selected", format.find("option").attrib["quality"])
-
-	def getThumbnail(self):
-		if not isinstance(self.thumbnail, str) or '//' not in self.thumbnail: return
-		if self._thumbnail_local is None:
-			tmp_filename = re.sub('[^0-9a-zA-Z]+', '', self.thumbnail)
-			self._thumbnail_local = os.path.join(thumbnail_path, tmp_filename)
-			if not os.path.exists(self._thumbnail_local):
-				tmp_file = open(self._thumbnail_local, 'wb')
-				tmp_file.write(os.urlopen(self.thumbnail).read())
-		return self._thumbnail_local
-
-
 class ClipBoardModel(QueueModel):
 	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality']
 
 	def __init__(self, path_to_xml_file):
+		self.combo_boxes_format = {}   # format (=extension) combobox for each item
+		self.combo_boxes_quality = {}  # quality combobox for each item
 		QueueModel.__init__(self, path_to_xml_file)
 
+	def _rebuild_index(self):
+		# this variant of ElementTreeModel is mutable!
+		# -> the following attributes shall be flushed every time
+		self.combo_boxes_format = {}
+		self.combo_boxes_quality = {}
+		self._n = {}
+		for parent in self._root.iter():
+			if parent.tag in ("clipboard", "package"):
+				for row_index, element in enumerate(parent):
+					self._n[element] = (parent, row_index)
+					# each row gets one combobox for the extension and one for the quality options
+					if element.tag == "item":
+						format_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
+						quality_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
+						# get selected extension -> fallback: take the first which got parsed from XML
+						selected_extension = element.get("selected", element.find("format").attrib["extension"])
+						# get selected quality; TODO: make default-fallback configurable
+						selected_format = element.find("format[@extension='"+selected_extension+"']")
+						selected_quality = selected_format.get("selected", selected_format.find("option").attrib["quality"])
+						# initialize combobox widgets
+						for format in element.findall("format"):
+							format_combobox.addItem(format.get("extension"))
+						format_combobox.setCurrentIndex(format_combobox.findText(selected_extension))
+						for format in element.findall("format[@extension='"+selected_extension+"']"):
+							quality_combobox.addItem(format.get("extension"))
+						quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
+						self.combo_boxes_format[element] = format_combobox
+						self.combo_boxes_quality[element] = quality_combobox
 
 	def flags(self, index):
 		if index.column() == 0:
@@ -77,6 +51,7 @@ class ClipBoardModel(QueueModel):
 
 	def data(self, index, role):
 		if not (index.isValid() and role == Qt.DisplayRole): return
+		# columns 3, 4 are handled via ComboBoxDelegate
 		element = index.internalPointer()
 		num_col = index.column()
 		if element.tag == 'item':
@@ -105,13 +80,3 @@ class ClipBoardModel(QueueModel):
 	def merge(self, root):
 		self._root.extend(list(root))
 		self.layoutChanged.emit()
-
-
-if __name__ == '__main__':
-	#from xml.etree.ElementTree import parse, tostring
-	model = ClipBoardModel("../models/clipboard_example.xml")
-	print(thumbnail_path)
-	for element in model._root:
-		if element.tag == 'item':
-			print(element.formats)
-			#print(tostring(root, encoding="unicode"))

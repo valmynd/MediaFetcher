@@ -1,31 +1,39 @@
 from views.base import *
-from models import ElementTreeModel, QueueModel
+from models import ElementTreeModel, QueueModel, ClipBoardModel
 from multiprocessing import Pool, Queue
 from lib.extractors import extract_url
 
 
 class ComboBoxDelegate(QStyledItemDelegate):
-	def createEditor(self, parent, option, index):
+	def __init__(self, parent_widget, model):
+		QStyledItemDelegate.__init__(self, parent_widget)
+		self._model = model
+
+	def createEditor(self, parent_widget, option, index):
 		num_col = index.column()
 		element = index.internalPointer()
-		selected_extension = element.getSelectedExtension()
 		if num_col == 3:
-			combo = element.format_combobox
-			combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
+			combo = self._model.combo_boxes_format[element]
+			#combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
 		elif num_col == 4:
-			combo = element.quality_combobox
-			combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
-		combo.setMaximumHeight(self.sizeHint(option, index).height())
-		combo.setParent(parent)
+			combo = self._model.combo_boxes_quality[element]
+			#combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
+		print(combo)
+		#combo.setMaximumHeight(self.sizeHint(option, index).height())
+		combo.setParent(parent_widget)
 		return combo
 
 	def _format_changed(self, element):
 		format_combobox = element.format_combobox
 		quality_combobox = element.quality_combobox
-		selected = format_combobox.currentText()
-		element.set("selected", selected)
+		selected_extension = format_combobox.currentText()
+		element.set("selected", selected_extension)
+		# override combobox-items with the quality options avaiable currently selected extension
 		quality_combobox.clear()
-		quality_combobox.addItems(element.getQualityOptions(selected))
+		quality_options = []
+		for option in element.find("format[@extension='"+selected_extension+"']/option"):
+			quality_options.append(option.attrib.get("quality"))
+		quality_combobox.addItems(quality_options)
 
 	def _quality_changed(self, element):
 		selected_extension = element.get("selected")
@@ -44,11 +52,11 @@ class ClipBoardView(QueueTreeView):
 	def __init__(self):
 		#from xml.etree import ElementTree as etree
 		#model = ElementTreeModel(etree.parse("models/clipboard_example.xml").getroot())
-		model = QueueModel("models/clipboard_example.xml")
-		#ClipBoardModel("models/clipboard_example.xml")
+		#model = QueueModel("models/clipboard_example.xml")
+		model = ClipBoardModel("models/clipboard_example.xml")
 		QueueTreeView.__init__(self, model)
-		self.setItemDelegateForColumn(3, ComboBoxDelegate(self))
-		self.setItemDelegateForColumn(4, ComboBoxDelegate(self))
+		self.setItemDelegateForColumn(3, ComboBoxDelegate(self, model))
+		self.setItemDelegateForColumn(4, ComboBoxDelegate(self, model))
 
 		self.clipBoardMenu = QMenu()
 		download_all = QAction('Download All', self, triggered=self.downloadAll)
