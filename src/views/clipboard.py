@@ -14,30 +14,30 @@ class ComboBoxDelegate(QStyledItemDelegate):
 		element = index.internalPointer()
 		if num_col == 3:
 			combo = self._model.combo_boxes_format[element]
-			#combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
+			combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
 		elif num_col == 4:
 			combo = self._model.combo_boxes_quality[element]
-			#combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
-		print(combo)
-		#combo.setMaximumHeight(self.sizeHint(option, index).height())
+			combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
+		combo.setMaximumHeight(self.sizeHint(option, index).height())  # workaround for (qt?) bug when editing labels
 		combo.setParent(parent_widget)
 		return combo
 
 	def _format_changed(self, element):
-		format_combobox = element.format_combobox
-		quality_combobox = element.quality_combobox
+		format_combobox = self._model.combo_boxes_format[element]
+		quality_combobox = self._model.combo_boxes_quality[element]
 		selected_extension = format_combobox.currentText()
 		element.set("selected", selected_extension)
 		# override combobox-items with the quality options avaiable currently selected extension
 		quality_combobox.clear()
-		quality_options = []
-		for option in element.find("format[@extension='"+selected_extension+"']/option"):
-			quality_options.append(option.attrib.get("quality"))
-		quality_combobox.addItems(quality_options)
+		for option in element.findall("format[@extension='" + selected_extension + "']/option"):
+			quality_combobox.addItem(option.get("quality"))
 
 	def _quality_changed(self, element):
-		selected_extension = element.get("selected")
-		print(selected_extension)
+		quality_combobox = self._model.combo_boxes_quality[element]
+		selected_extension = element.get("selected", element.find("format").attrib["extension"])
+		selected_format = element.find("format[@extension='" + selected_extension + "']")
+		selected_quality = quality_combobox.currentText()
+		selected_format.attrib["selected"] = selected_quality
 
 	def paint(self, painter, option, index):
 		# QItemDelegate.paint() takes care of the background color
@@ -88,8 +88,9 @@ class ClipBoardView(QueueTreeView):
 
 	def addURL(self, url):
 		self.pool.apply_async(func=extract_url, args=(url,))
-		#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
-		#self.addItem(temporary_item, 'Extracting')
+
+	#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
+	#self.addItem(temporary_item, 'Extracting')
 
 	def showInfo(self):
 		mapper = QDataWidgetMapper

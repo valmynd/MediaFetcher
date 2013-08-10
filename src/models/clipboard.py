@@ -27,19 +27,19 @@ class ClipBoardModel(QueueModel):
 					self._n[element] = (parent, row_index)
 					# each row gets one combobox for the extension and one for the quality options
 					if element.tag == "item":
-						format_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
-						quality_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
+						format_combobox = QComboBox()   # see ComboBoxDelegate.createEditor()
+						quality_combobox = QComboBox()  # see ComboBoxDelegate.createEditor()
 						# get selected extension -> fallback: take the first which got parsed from XML
 						selected_extension = element.get("selected", element.find("format").attrib["extension"])
 						# get selected quality; TODO: make default-fallback configurable
-						selected_format = element.find("format[@extension='"+selected_extension+"']")
+						selected_format = element.find("format[@extension='" + selected_extension + "']")
 						selected_quality = selected_format.get("selected", selected_format.find("option").attrib["quality"])
 						# initialize combobox widgets
 						for format in element.findall("format"):
 							format_combobox.addItem(format.get("extension"))
 						format_combobox.setCurrentIndex(format_combobox.findText(selected_extension))
-						for format in element.findall("format[@extension='"+selected_extension+"']"):
-							quality_combobox.addItem(format.get("extension"))
+						for option in element.findall("format[@extension='" + selected_extension + "']/option"):
+							quality_combobox.addItem(option.get("quality"))
 						quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
 						self.combo_boxes_format[element] = format_combobox
 						self.combo_boxes_quality[element] = quality_combobox
