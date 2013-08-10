@@ -7,9 +7,9 @@ if not os.path.exists(thumbnail_path):
 	os.mkdir(thumbnail_path)
 
 
-class ClipBoardItemElement(QueueItemElement):
+class ClipBoardItemElement:
 	def __init__(self, tag, attrib, **extra):
-		QueueItemElement.__init__(self, tag, attrib, **extra)
+		#QueueItemElement.__init__(self, tag, attrib, **extra)
 		# the following attributes are meant to be accessed from anywhere:
 		self.formats = {} # initialized via _init(): access a download option like this: element.format['flv']['720p']
 		self.format_combobox = QComboBox() # initialized via ComboBoxDelegate.createEditor()
@@ -62,9 +62,13 @@ class ClipBoardItemElement(QueueItemElement):
 				tmp_file.write(os.urlopen(self.thumbnail).read())
 		return self._thumbnail_local
 
+
 class ClipBoardModel(QueueModel):
 	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality']
-	_element_cls = ClipBoardItemElement
+
+	def __init__(self, path_to_xml_file):
+		QueueModel.__init__(self, path_to_xml_file)
+
 
 	def flags(self, index):
 		if index.column() == 0:

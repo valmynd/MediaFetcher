@@ -1,2 +1,2 @@
-from models.clipboard import ClipBoardModel, ClipBoardItemElement
+from models.clipboard import *
 #from models.download import

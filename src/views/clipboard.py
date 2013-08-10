@@ -1,5 +1,5 @@
 from views.base import *
-from models import ClipBoardModel, ClipBoardItemElement
+from models import ElementTreeModel, QueueModel
 from multiprocessing import Pool, Queue
 from lib.extractors import extract_url
 
@@ -10,10 +10,10 @@ class ComboBoxDelegate(QStyledItemDelegate):
 		element = index.internalPointer()
 		selected_extension = element.getSelectedExtension()
 		if num_col == 3:
-			combo = element.format_combobox # see ClipBoardItemElement
+			combo = element.format_combobox
 			combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
 		elif num_col == 4:
-			combo = element.quality_combobox # see ClipBoardItemElement
+			combo = element.quality_combobox
 			combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
 		combo.setMaximumHeight(self.sizeHint(option, index).height())
 		combo.setParent(parent)
@@ -29,7 +29,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 	def _quality_changed(self, element):
 		selected_extension = element.get("selected")
-		#print(selected_extension)
+		print(selected_extension)
 
 	def paint(self, painter, option, index):
 		# QItemDelegate.paint() takes care of the background color
@@ -42,7 +42,10 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 class ClipBoardView(QueueTreeView):
 	def __init__(self):
-		model = ClipBoardModel("models/clipboard_example.xml")
+		#from xml.etree import ElementTree as etree
+		#model = ElementTreeModel(etree.parse("models/clipboard_example.xml").getroot())
+		model = QueueModel("models/clipboard_example.xml")
+		#ClipBoardModel("models/clipboard_example.xml")
 		QueueTreeView.__init__(self, model)
 		self.setItemDelegateForColumn(3, ComboBoxDelegate(self))
 		self.setItemDelegateForColumn(4, ComboBoxDelegate(self))

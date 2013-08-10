@@ -1,8 +1,7 @@
 from utils.youtube_dl.FileDownloader import *
 from utils.youtube_dl.InfoExtractors import gen_extractors
-from models import ClipBoardItemElement
 from xml.etree.ElementTree import Element, tostring
-#from datetime import date
+
 
 class MediaExtractor(FileDownloader):
 	def __init__(self, url):
