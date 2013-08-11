@@ -121,7 +121,8 @@ class MainWindow(QMainWindow):
 		self.tabBar.tabBar().tabButton(1, QTabBar.RightSide).resize(0, 0)
 
 	def clipBoardChanged(self):
-		if not QApplication.clipboard().mimeData().hasText(): return
+		if not QApplication.clipboard().mimeData().hasText():
+			return
 		text = QApplication.clipboard().text()
 		self.search(text)
 
