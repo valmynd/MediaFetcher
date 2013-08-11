@@ -87,3 +87,7 @@ def extract_url(url):
 	except Exception as e:
 		print(e)
 		extract_url._queue.put((url, e))
+
+if __name__ == '__main__':
+	xml = extract_url_using_youtubedl('https://www.youtube.com/watch?v=vwjNfc6ORTg')
+	print(xml)
