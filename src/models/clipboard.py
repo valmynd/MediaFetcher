@@ -8,7 +8,7 @@ if not os.path.exists(thumbnail_path):
 
 
 class ClipBoardModel(QueueModel):
-	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality']
+	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality', 'Description']
 
 	def __init__(self, path_to_xml_file):
 		self.combo_boxes_format = {}   # format (=extension) combobox for each item
@@ -50,7 +50,9 @@ class ClipBoardModel(QueueModel):
 		return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 	def data(self, index, role):
-		if not (index.isValid() and role == Qt.DisplayRole): return
+		if not (index.isValid() and role in (Qt.DisplayRole, Qt.EditRole)):
+			# if Qt.EditRole ain't accepted, QDataWidgetMapper wouldn't work properly
+			return None
 		# columns 3, 4 are handled via ComboBoxDelegate
 		element = index.internalPointer()
 		num_col = index.column()
@@ -61,19 +63,25 @@ class ClipBoardModel(QueueModel):
 				return element.attrib.get("host")
 			elif num_col == 2:
 				return 'Available'
+			elif num_col == 5:
+				return element.attrib.get("description")
 		elif element.tag == 'package':
 			if num_col == 0:
 				return element.attrib["name"]
 
 	def setData(self, index, value, role):
-		num_col = index.column()
-		if num_col != 0 or role != Qt.EditRole or value == "":
+		if role != Qt.EditRole or value == "":
 			return QueueModel.setData(self, index, value, role)
 		element = index.internalPointer()
+		num_col = index.column()
 		if element.tag == 'item':
-			element.attrib["title"] = value
+			if num_col == 0:
+				element.attrib["title"] = value
+			elif num_col == 5:
+				element.attrib["description"] = value
 		elif element.tag == 'package':
-			element.attrib["name"] = value
+			if num_col == 0:
+				element.attrib["name"] = value
 		self.dataChanged.emit(index, index)
 		return True
 

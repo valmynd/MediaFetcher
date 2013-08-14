@@ -7,6 +7,7 @@ from PySide.QtGui import *
 from gui.table_widgets import *
 from views import ClipBoardView
 
+
 class MainWindow(QMainWindow):
 	def __init__(self):
 		QMainWindow.__init__(self)

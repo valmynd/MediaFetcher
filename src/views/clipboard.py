@@ -48,6 +48,36 @@ class ComboBoxDelegate(QStyledItemDelegate):
 			self.parent().openPersistentEditor(index)
 
 
+class InfoBoxDialog(QDialog):
+	def __init__(self, parent_widget, model):
+		QDialog.__init__(self, parent_widget)
+		title_field = QLineEdit()
+		description_field = QPlainTextEdit()
+		thumbnail_field = QLabel()
+		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+		buttonbox.accepted.connect(self.submit)
+		buttonbox.rejected.connect(self.close)
+		layout = QFormLayout()
+		layout.addRow(QLabel("Title:"), title_field)
+		layout.addRow(QLabel("Description:"), description_field)
+		layout.addRow(QLabel("Thumbnail:"), thumbnail_field)
+		layout.addRow(buttonbox)
+		self.mapper = QDataWidgetMapper(self)
+		self.mapper.setModel(model)
+		self.mapper.addMapping(title_field, 0)
+		self.mapper.addMapping(description_field, 5)
+		self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
+		self.setLayout(layout)
+
+	def open_for_selection(self, selected_index):
+		self.mapper.setCurrentModelIndex(selected_index)
+		self.exec_()
+
+	def submit(self):
+		self.mapper.submit()
+		self.close()
+
+
 class ClipBoardView(QueueTreeView):
 	def __init__(self):
 		#from xml.etree import ElementTree as etree
@@ -59,15 +89,20 @@ class ClipBoardView(QueueTreeView):
 		self.setItemDelegateForColumn(4, ComboBoxDelegate(self, model))
 
 		self.clipBoardMenu = QMenu()
-		download_all = QAction('Download All', self, triggered=self.downloadAll)
 		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
+		download_all = QAction('Download All', self, triggered=self.downloadAll)
+		remove_selected = QAction('Remove Selected', self, triggered=self.downloadSelected)
+		remove_all = QAction('Remove All', self, triggered=self.downloadSelected)
 		info_action = QAction('Info', self, triggered=self.showInfo)
-		self.clipBoardMenu.addAction(download_all)
 		self.clipBoardMenu.addAction(download_selected)
+		self.clipBoardMenu.addAction(download_all)
+		self.clipBoardMenu.addAction(remove_selected)
+		self.clipBoardMenu.addAction(remove_all)
 		self.clipBoardMenu.addAction(info_action)
+		self.infobox = InfoBoxDialog(self, self.model())
 
 		self.queue = Queue()
-		self.pool = Pool(processes=2, initializer=self._pool_init, initargs=(self.queue,))
+		#self.pool = Pool(processes=2, initializer=self._pool_init, initargs=(self.queue,))
 
 	def _pool_init(self, queue):
 		# Assign a Queue to a Function that will run in background here
@@ -88,17 +123,11 @@ class ClipBoardView(QueueTreeView):
 
 	def addURL(self, url):
 		self.pool.apply_async(func=extract_url, args=(url,))
-
-	#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
-	#self.addItem(temporary_item, 'Extracting')
+		#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
+		#self.addItem(temporary_item, 'Extracting')
 
 	def showInfo(self):
-		mapper = QDataWidgetMapper
-		mapper.setModel(self.model())
-		#mapper.addMapping(mySpinBox, 0)
-		#mapper.addMapping(myLineEdit, 1)
-		#mapper.addMapping(myCountryChooser, 2)
-		mapper.toFirst()
+		self.infobox.open_for_selection(self.selectedIndexes()[0])
 
 	def updateProgress(self):
 		if self.queue.empty(): return

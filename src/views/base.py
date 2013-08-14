@@ -25,7 +25,6 @@ class QueueTreeView(QTreeView):
 		self.header().setMaximumHeight(21)
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
 
-
 	def toggleColumn(self):
 		column_title = self.sender().text()
 		i = self.model()._columns.index(column_title)
