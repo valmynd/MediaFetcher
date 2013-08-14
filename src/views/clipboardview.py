@@ -1,4 +1,4 @@
-from views.base import *
+from views.viewbase import *
 from models import ClipBoardModel
 
 
@@ -111,9 +111,10 @@ class ClipBoardView(QueueTreeView):
 		pass
 
 	def downloadSelected(self):
-		for num_row in self.getSelectedRows():
-			self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
-			self.removeRow(num_row)
+		#for num_row in self.getSelectedRows():
+		#	self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
+		#	self.removeRow(num_row)
+		pass
 
 	def showInfo(self):
 		self.infobox.open_for_selection(self.selectedIndexes()[0])

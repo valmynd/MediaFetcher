@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2011 sp1 (http://www.altova.com) by End User (free.org) -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 	<xs:element name="clipboard">
 		<xs:annotation>
@@ -29,6 +30,11 @@
 						<xs:attribute name="url" type="xs:string" use="required">
 							<xs:annotation>
 								<xs:documentation>originally pasted url</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
+						<xs:attribute name="path">
+							<xs:annotation>
+								<xs:documentation>download path</xs:documentation>
 							</xs:annotation>
 						</xs:attribute>
 					</xs:complexType>
@@ -97,7 +103,7 @@
 		</xs:attribute>
 		<xs:attribute name="host" type="xs:string">
 			<xs:annotation>
-				<xs:documentation>name of the hoster (e.g. youtube.com instead of dl1.youtube.com)</xs:documentation>
+				<xs:documentation>name of the hoster</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="description" type="xs:string">
@@ -113,6 +119,11 @@
 		<xs:attribute name="selected" type="xs:string">
 			<xs:annotation>
 				<xs:documentation>currently selected format, e.g. flv</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="path">
+			<xs:annotation>
+				<xs:documentation>download path</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 	</xs:complexType>

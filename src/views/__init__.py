@@ -1,1 +1,2 @@
-from views.clipboard import ClipBoardView
+from views.clipboardview import ClipBoardView
+from views.downloadview import DownloadView

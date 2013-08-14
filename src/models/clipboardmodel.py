@@ -1,9 +1,9 @@
-from models.base import *
+from models.modelbase import *
 from PySide.QtGui import QComboBox
+from multiprocessing import Pool, Queue
+from extract import extract_url
 import tempfile
 import os
-from multiprocessing import Pool, Queue
-from lib.extractors import extract_url
 
 thumbnail_path = os.path.join(tempfile.gettempdir(), "mediafetcher_thumbnails")
 if not os.path.exists(thumbnail_path):

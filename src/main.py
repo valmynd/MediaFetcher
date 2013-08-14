@@ -4,8 +4,7 @@ ___license___ = "GPL v3"
 
 from PySide.QtCore import *
 from PySide.QtGui import *
-from gui.table_widgets import *
-from views import ClipBoardView
+from views import ClipBoardView, DownloadView
 
 
 class MainWindow(QMainWindow):
@@ -101,19 +100,17 @@ class MainWindow(QMainWindow):
 		self.trayIcon = QSystemTrayIcon(self)
 		self.trayIcon.setIcon(QIcon("../img/icon.png"))
 		self.trayIcon.setContextMenu(self.trayIconMenu)
+		self.trayIcon.activated.connect(self.trayActivated)
 
 	def _initTabs(self):
 		self.tabBar = QTabWidget()
 		self.setCentralWidget(self.tabBar)
 
 		# Downloads Tab
-		self.downloadWidget = DownloadTableWidget(self)
-		#self.downLoadList._add_row('test1', 'Youtube', 'Available')
-		self.tabBar.addTab(self.downloadWidget, "Downloads")
+		self.download_view = DownloadView()
+		self.tabBar.addTab(self.download_view, "Downloads")
 
 		# Clipboard Tab
-		#self.clipboardWidget = ClipboardTableWidget(self)
-		#self.clipBoardList._add_row('test1', 'Youtube', 'Available', ['mp4', 'webm', 'mp3', 'ogg'], ['320p', '720p'])
 		self.clipboard_view = ClipBoardView()
 		self.tabBar.addTab(self.clipboard_view, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
@@ -155,9 +152,20 @@ class MainWindow(QMainWindow):
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()
 
+	def trayActivated(self, reason):
+		if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+			self.showNormal() if self.isHidden() else self.hide()
+
 
 if __name__ == '__main__':
 	import sys
+	from utils.youtube_dl.utils import *
+	jar = compat_cookiejar.CookieJar()
+	cookie_processor = compat_urllib_request.HTTPCookieProcessor(jar)
+	proxy_handler = compat_urllib_request.ProxyHandler()
+	opener = compat_urllib_request.build_opener(proxy_handler, cookie_processor, YoutubeDLHandler())
+	compat_urllib_request.install_opener(opener)
+	socket.setdefaulttimeout(60)
 
 	app = QApplication(sys.argv)
 	main_window = MainWindow()

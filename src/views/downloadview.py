@@ -1,4 +1,5 @@
-from views.base import *
+from views.viewbase import *
+from models.downloadmodel import DownloadModel
 
 
 class ProgressBarDelegate(QStyledItemDelegate):
@@ -13,14 +14,17 @@ class ProgressBarDelegate(QStyledItemDelegate):
 
 
 class DownloadView(QueueTreeView):
-	def __init__(self, download_model):
+	_ignored_columns = ['Path']
+
+	def __init__(self):
+		download_model = DownloadModel("models/clipboard_example.xml")
 		QueueTreeView.__init__(self, download_model)
-		self.setItemDelegateForColumn(3, ProgressBarDelegate(self))
-		self.setItemDelegateForColumn(4, ProgressBarDelegate(self))
+		#self.setItemDelegateForColumn(3, ProgressBarDelegate(self))
+		#self.setItemDelegateForColumn(4, ProgressBarDelegate(self))
 		self.downloadMenu = QMenu()
-		info_action = QAction('Info', self, triggered=self.showInfo)
-		self.downloadMenu.addAction(info_action)
+		#info_action = QAction('Info', self, triggered=self.showInfo)
+		#self.downloadMenu.addAction(info_action)
 
 	def showContextMenu(self, pos):
 		globalPos = self.mapToGlobal(pos)
-		selectedItem = self.downloadMenu.exec_(globalPos)
+		self.downloadMenu.exec_(globalPos)

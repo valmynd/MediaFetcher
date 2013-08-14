@@ -1,2 +1,2 @@
-from models.clipboard import *
+from models.clipboardmodel import *
 #from models.download import

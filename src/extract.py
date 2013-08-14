@@ -45,7 +45,6 @@ def extract_url_using_youtubedl(url):
 	ydl.add_default_info_extractors()
 	info = ydl.extract_info(url, download=False)
 
-	element = None
 	if info['_type'] == "compat_list":
 		# almost all (meta-)data is actually part of the "entries" (redundant)
 		item = Element('item', url=url,
@@ -66,12 +65,11 @@ def extract_url_using_youtubedl(url):
 				formats[extension] = Element('format', extension=extension)
 				item.append(formats[extension])
 			formats[extension].append(optn)
-		element = item
+		return tostring(item, encoding="unicode")
 	else:
 		#package = Element('package', name="Youtube Playlist") # give more meaningful name!
 		#package.extend(items.values())
 		raise Exception("Unexpected Type: %s" % info['_type'])
-	return tostring(element, encoding="unicode")
 
 
 def extract_url(url):
@@ -92,5 +90,5 @@ def extract_url(url):
 
 
 if __name__ == '__main__':
-	xml = extract_url_using_youtubedl('https://www.youtube.com/watch?v=vwjNfc6ORTg')
+	xml = extract_url_using_youtubedl('http://www.youtube.com/watch?v=v776jlfm7vE')
 	print(xml)
