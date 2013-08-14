@@ -1,6 +1,9 @@
 from models.base import *
 from PySide.QtGui import QComboBox
-import tempfile, re, urllib, os
+import tempfile
+import os
+from multiprocessing import Pool, Queue
+from lib.extractors import extract_url
 
 thumbnail_path = os.path.join(tempfile.gettempdir(), "mediafetcher_thumbnails")
 if not os.path.exists(thumbnail_path):
@@ -14,6 +17,14 @@ class ClipBoardModel(QueueModel):
 		self.combo_boxes_format = {}   # format (=extension) combobox for each item
 		self.combo_boxes_quality = {}  # quality combobox for each item
 		QueueModel.__init__(self, path_to_xml_file)
+
+		self.queue = Queue()
+		self.pool = Pool(processes=2, initializer=self._pool_init, initargs=(self.queue,))
+
+	def _pool_init(self, queue):
+		# Assign a Queue to a Function that will run in background here
+		# see http://stackoverflow.com/a/3843313/852994
+		extract_url._queue = queue
 
 	def _rebuild_index(self):
 		# this variant of ElementTreeModel is mutable!
@@ -32,13 +43,13 @@ class ClipBoardModel(QueueModel):
 						# get selected extension -> fallback: take the first which got parsed from XML
 						selected_extension = element.get("selected", element.find("format").attrib["extension"])
 						# get selected quality; TODO: make default-fallback configurable
-						selected_format = element.find("format[@extension='" + selected_extension + "']")
+						selected_format = element.find("format[@extension='%s']" % selected_extension)
 						selected_quality = selected_format.get("selected", selected_format.find("option").attrib["quality"])
 						# initialize combobox widgets
 						for format in element.findall("format"):
 							format_combobox.addItem(format.get("extension"))
 						format_combobox.setCurrentIndex(format_combobox.findText(selected_extension))
-						for option in element.findall("format[@extension='" + selected_extension + "']/option"):
+						for option in element.findall("format[@extension='%s']/option" % selected_extension):
 							quality_combobox.addItem(option.get("quality"))
 						quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
 						self.combo_boxes_format[element] = format_combobox
@@ -68,6 +79,13 @@ class ClipBoardModel(QueueModel):
 		elif element.tag == 'package':
 			if num_col == 0:
 				return element.attrib["name"]
+			elif num_col == 2:
+				return 'Available'
+		elif element.tag == 'task':
+			if num_col == 0:
+				return element.attrib["url"]
+			elif num_col == 2:
+				return element.attrib.get("status", "Extracting")
 
 	def setData(self, index, value, role):
 		if role != Qt.EditRole or value == "":
@@ -82,9 +100,26 @@ class ClipBoardModel(QueueModel):
 		elif element.tag == 'package':
 			if num_col == 0:
 				element.attrib["name"] = value
+		elif element.tag == 'task':
+			pass
 		self.dataChanged.emit(index, index)
 		return True
 
-	def merge(self, root):
-		self._root.extend(list(root))
+	def addURL(self, url):
+		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """
+		self._root.append(etree.Element('task', url=url))
+		self.layoutChanged.emit()
+		self.pool.apply_async(func=extract_url, args=(url,))
+
+	def updateProgress(self):
+		if self.queue.empty():
+			return
+		url, result = self.queue.get()
+		task = self._root.find("task[@url='%s']" % url)
+		if isinstance(result, Exception):
+			task.attrib["status"] = str(result)
+		else:
+			element = etree.fromstring(result)
+			self._root.append(element)
+			self._root.remove(task)
 		self.layoutChanged.emit()

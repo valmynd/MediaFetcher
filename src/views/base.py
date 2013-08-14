@@ -3,6 +3,8 @@ from PySide.QtGui import *
 
 
 class QueueTreeView(QTreeView):
+	_ignored_columns = [] # columns that would break the table layout, e.g. multiline descriptions, thumbnails
+
 	def __init__(self, model):
 		QTreeView.__init__(self)
 		self.setModel(model)
@@ -11,7 +13,10 @@ class QueueTreeView(QTreeView):
 		self.header().setContextMenuPolicy(Qt.CustomContextMenu)
 		self.header().customContextMenuRequested.connect(self.chooseColumns)
 		self.columnMenu = QMenu()
-		for column_title in model._columns:
+		for i, column_title in enumerate(model._columns):
+			if column_title in self._ignored_columns:
+				self.setColumnHidden(i, True)
+				continue
 			qa = QAction(column_title, self, checkable=True, checked=True, triggered=self.toggleColumn)
 			self.columnMenu.addAction(qa)
 
@@ -32,7 +37,7 @@ class QueueTreeView(QTreeView):
 
 	def chooseColumns(self, pos):
 		globalPos = self.mapToGlobal(pos)
-		selectedItem = self.columnMenu.exec_(globalPos)
+		self.columnMenu.exec_(globalPos)
 
 	def showContextMenu(self, pos):
 		raise NotImplementedError

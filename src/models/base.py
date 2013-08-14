@@ -64,8 +64,8 @@ class ElementTreeModel(QAbstractItemModel):
 class QueueModel(ElementTreeModel):
 	def __init__(self, path_to_xml_file):
 		"""other than ElementTreeModel(), QueueModel() does take a path to an XML file as a parameter"""
-		root = etree.parse(path_to_xml_file).getroot()
-		ElementTreeModel.__init__(self, root)
+		root_element = etree.parse(path_to_xml_file).getroot()
+		ElementTreeModel.__init__(self, root_element)
 
 	def rowCount(self, parent):
 		# Only "package" nodes should have children in the view!

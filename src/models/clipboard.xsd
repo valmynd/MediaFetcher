@@ -6,6 +6,19 @@
 		</xs:annotation>
 		<xs:complexType>
 			<xs:sequence>
+				<xs:element name="task">
+					<xs:annotation>
+						<xs:documentation>task elements are replaced as soon as information from the respective url is extracted</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:attribute name="url" type="xs:string" use="required"/>
+						<xs:attribute name="status" type="xs:string" default="Extracting">
+							<xs:annotation>
+								<xs:documentation>may contain failure notices</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
+					</xs:complexType>
+				</xs:element>
 				<xs:element name="item" type="itemType" maxOccurs="unbounded"/>
 				<xs:element name="package" maxOccurs="unbounded">
 					<xs:complexType>
@@ -13,6 +26,11 @@
 							<xs:element name="item" type="itemType" maxOccurs="unbounded"/>
 						</xs:sequence>
 						<xs:attribute name="name" use="required"/>
+						<xs:attribute name="url" type="xs:string" use="required">
+							<xs:annotation>
+								<xs:documentation>originally pasted url</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
 					</xs:complexType>
 				</xs:element>
 			</xs:sequence>
@@ -71,10 +89,22 @@
 				</xs:complexType>
 			</xs:element>
 		</xs:sequence>
-		<xs:attribute name="id" type="xs:integer"/>
 		<xs:attribute name="title" type="xs:string" use="required"/>
-		<xs:attribute name="host" type="xs:string"/>
-		<xs:attribute name="description" type="xs:string"/>
+		<xs:attribute name="url" type="xs:string" use="required">
+			<xs:annotation>
+				<xs:documentation>originally pasted url</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="host" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>name of the hoster (e.g. youtube.com instead of dl1.youtube.com)</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="description" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>description provided by the uploader (readonly)</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="thumbnail" type="xs:string">
 			<xs:annotation>
 				<xs:documentation>URL for thumbnail</xs:documentation>

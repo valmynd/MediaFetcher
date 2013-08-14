@@ -1,7 +1,5 @@
 from views.base import *
-from models import ElementTreeModel, QueueModel, ClipBoardModel
-from multiprocessing import Pool, Queue
-from lib.extractors import extract_url
+from models import ClipBoardModel
 
 
 class ComboBoxDelegate(QStyledItemDelegate):
@@ -35,7 +33,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
 	def _quality_changed(self, element):
 		quality_combobox = self._model.combo_boxes_quality[element]
 		selected_extension = element.get("selected", element.find("format").attrib["extension"])
-		selected_format = element.find("format[@extension='" + selected_extension + "']")
+		selected_format = element.find("format[@extension='%s']" % selected_extension)
 		selected_quality = quality_combobox.currentText()
 		selected_format.attrib["selected"] = selected_quality
 
@@ -51,8 +49,10 @@ class ComboBoxDelegate(QStyledItemDelegate):
 class InfoBoxDialog(QDialog):
 	def __init__(self, parent_widget, model):
 		QDialog.__init__(self, parent_widget)
+		self.setWindowTitle("Clipboard Item Description")
 		title_field = QLineEdit()
 		description_field = QPlainTextEdit()
+		#description_field.setReadOnly(True) # wouldn't make sense to edit this (?)
 		thumbnail_field = QLabel()
 		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 		buttonbox.accepted.connect(self.submit)
@@ -79,6 +79,8 @@ class InfoBoxDialog(QDialog):
 
 
 class ClipBoardView(QueueTreeView):
+	_ignored_columns = ['Description']
+
 	def __init__(self):
 		#from xml.etree import ElementTree as etree
 		#model = ElementTreeModel(etree.parse("models/clipboard_example.xml").getroot())
@@ -101,14 +103,6 @@ class ClipBoardView(QueueTreeView):
 		self.clipBoardMenu.addAction(info_action)
 		self.infobox = InfoBoxDialog(self, self.model())
 
-		self.queue = Queue()
-		#self.pool = Pool(processes=2, initializer=self._pool_init, initargs=(self.queue,))
-
-	def _pool_init(self, queue):
-		# Assign a Queue to a Function that will run in background here
-		# see http://stackoverflow.com/a/3843313/852994
-		extract_url._queue = queue
-
 	def showContextMenu(self, pos):
 		globalPos = self.mapToGlobal(pos)
 		selectedItem = self.clipBoardMenu.exec_(globalPos)
@@ -121,19 +115,11 @@ class ClipBoardView(QueueTreeView):
 			self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
 			self.removeRow(num_row)
 
-	def addURL(self, url):
-		self.pool.apply_async(func=extract_url, args=(url,))
-		#temporary_item = ClipBoardItem(title=url, host="", description="", thumbnail=None, subtitles=[])
-		#self.addItem(temporary_item, 'Extracting')
-
 	def showInfo(self):
 		self.infobox.open_for_selection(self.selectedIndexes()[0])
 
+	def addURL(self, url):
+		self.model().addURL(url)
+
 	def updateProgress(self):
-		if self.queue.empty(): return
-		url, result = self.queue.get()
-		if isinstance(result, Exception):
-			print(result)
-			return
-			#element = fromstring(result)
-			#self.model().merge(element)
+		return self.model().updateProgress() # forward to ClipBoardModel

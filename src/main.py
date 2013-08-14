@@ -17,6 +17,7 @@ class MainWindow(QMainWindow):
 		self._initTrayIcon()
 		self._initTabs()
 		self.setWindowTitle("Media Fetcher")
+		self.setWindowIcon(QIcon("../img/icon.png"))
 		self.resize(600, 400)
 		self.statusBar()
 
@@ -98,6 +99,7 @@ class MainWindow(QMainWindow):
 		self.trayIconMenu.addAction(self.quitAction)
 
 		self.trayIcon = QSystemTrayIcon(self)
+		self.trayIcon.setIcon(QIcon("../img/icon.png"))
 		self.trayIcon.setContextMenu(self.trayIconMenu)
 
 	def _initTabs(self):

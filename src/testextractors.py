@@ -1,5 +1,6 @@
 from utils.youtube_dl.YoutubeDL import *
 from xml.etree.ElementTree import Element, tostring
+import re
 
 
 def extract_url_using_youtubedl(url):
@@ -7,7 +8,7 @@ def extract_url_using_youtubedl(url):
 	Extract information from URL using youtube-dl
 	http://rg3.github.io/youtube-dl/
 
-	As every such function, it returns a <clipboard> xml fragment
+	As every such function, it returns either an <item> or <package> xml fragment
 
 	The following are common fields for a title:
 	title:          Video title, unescaped.
@@ -44,10 +45,11 @@ def extract_url_using_youtubedl(url):
 	ydl.add_default_info_extractors()
 	info = ydl.extract_info(url, download=False)
 
-	clipboard = Element('clipboard')
+	element = None
 	if info['_type'] == "compat_list":
 		# almost all (meta-)data is actually part of the "entries" (redundant)
-		item = Element('item', title=info['entries'][0]['title'],
+		item = Element('item', url=url,
+							title=info['entries'][0]['title'],
 							host=info['entries'][0]['extractor'],
 							description=str(info['entries'][0].get('description')),
 							thumbnail=str(info['entries'][0].get('thumbnail')))
@@ -55,7 +57,8 @@ def extract_url_using_youtubedl(url):
 		for entry in info['entries']:
 			# extract relevant Download Options
 			extension = entry['ext']
-			optn = Element('option', quality=entry.get('format'),
+			quality = re.sub(r'^[0-9]+\s-\s', '', entry.get('format'))
+			optn = Element('option', quality=quality,
 								url=str(entry.get('url')),
 								location=str(entry.get('location')),
 								player_url=str(entry.get('player_url')))
@@ -63,13 +66,12 @@ def extract_url_using_youtubedl(url):
 				formats[extension] = Element('format', extension=extension)
 				item.append(formats[extension])
 			formats[extension].append(optn)
-		clipboard.append(item)
+		element = item
 	else:
 		#package = Element('package', name="Youtube Playlist") # give more meaningful name!
 		#package.extend(items.values())
-		#clipboard.append(package)
 		raise Exception("Unexpected Type: %s" % info['_type'])
-	return tostring(clipboard, encoding="unicode")
+	return tostring(element, encoding="unicode")
 
 
 def extract_url(url):
@@ -87,6 +89,7 @@ def extract_url(url):
 	except Exception as e:
 		print(e)
 		extract_url._queue.put((url, e))
+
 
 if __name__ == '__main__':
 	xml = extract_url_using_youtubedl('https://www.youtube.com/watch?v=vwjNfc6ORTg')
