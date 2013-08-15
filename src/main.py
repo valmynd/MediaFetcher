@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 ___license___ = "GPL v3"
 
@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
 		self.tabBar.addTab(self.download_view, "Downloads")
 
 		# Clipboard Tab
-		self.clipboard_view = ClipBoardView()
+		self.clipboard_view = ClipBoardView(self.download_view)
 		self.tabBar.addTab(self.clipboard_view, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
@@ -141,10 +141,10 @@ class MainWindow(QMainWindow):
 
 	def search(self, text=None):
 		# TODO: ignore/warn/ask when url is already in the clipboard
-		if text is None:
-			text = self.searchBar.text().strip()
-		if '//' in text: # contains URL
-			self.clipboard_view.addURL(text)
+		#if text is None:
+		#	text = self.searchBar.text().strip()
+		#if '//' in text: # contains URL
+		self.clipboard_view.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
 
 	def updateProgress(self):
 		self.tabBar.currentWidget().updateProgress()

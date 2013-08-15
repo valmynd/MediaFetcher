@@ -4,27 +4,37 @@ from xml.etree import ElementTree as etree
 
 class ElementTreeModel(QAbstractItemModel):
 	"""
-	Readonly ItemModel for ElementTree Data structures
-	see https://pypi.python.org/pypi/EuroPython2006_PyQt4_Examples/
-	also read http://qt-project.org/doc/qt-4.8/itemviews-simpletreemodel.html
+	Model for ElementTree Data Structures
+
+	inspired by: https://pypi.python.org/pypi/EuroPython2006_PyQt4_Examples/
+	also read: http://qt-project.org/doc/qt-4.8/itemviews-simpletreemodel.html
 	"""
 	_columns = ["Tag", "Attributes"]
 
 	def __init__(self, etree_root_element):
 		QAbstractItemModel.__init__(self)
-		self._n = {}  # node information used in parent(): (element, (parent_element, row_index)
 		self._root = etree_root_element
-		self.layoutChanged.connect(self._rebuild_index)
-		self._rebuild_index()
+		self._init_internal_dict()
 
-	def _rebuild_index(self):
+	def _init_internal_dict(self):
 		""" this method is used to put the xml data into an internal dictionary """
-		for parent in self._root.iter():
-			for row_index, element in enumerate(parent):
-				self._n[element] = (parent, row_index)
+		self._n = {}  # node information used in parent(): (element, (parent_element, row_index)
+		for num_row, element in enumerate(self._root):
+			self._add_to_internal_dict(element, self._root, num_row)
+
+	def _add_to_internal_dict(self, element, parent, num_row):
+		""" override this if something shall happen with newly added elements """
+		self._n[element] = (parent, num_row)
+		for num_row, child in enumerate(element):
+			self._add_to_internal_dict(child, element, num_row)
+
+	def _remove_from_internal_dict(self, element):
+		for child in list(element):
+			self._remove_from_internal_dict(child)
+		self._n.pop(element)
 
 	def data(self, index, role):
-		""" data is retrieved via data(), see setData() for data to be written """
+		""" data is retrieved via data(), implement setData() for data to be written! """
 		# index.internalPointer() -> internal data for requested row
 		# index.column() -> number of requested column
 		if not (index.isValid() and role == Qt.DisplayRole):
@@ -48,10 +58,10 @@ class ElementTreeModel(QAbstractItemModel):
 		""" this method must be implemented, returns some Index object, is used by qt internally """
 		if not index.isValid():
 			return QModelIndex()
-		parent_item, row_index = self._n[index.internalPointer()]
+		parent_item, num_row = self._n[index.internalPointer()]
 		if id(parent_item) == id(self._root):
 			return QModelIndex()
-		return self.createIndex(self._n[parent_item][1], 0, parent_item)  # herefore we need row_index
+		return self.createIndex(self._n[parent_item][1], 0, parent_item)  # this is why we need num_row
 
 	def rowCount(self, parent):
 		item = parent.internalPointer() if parent.isValid() else self._root
@@ -59,6 +69,39 @@ class ElementTreeModel(QAbstractItemModel):
 
 	def columnCount(self, parent):
 		return len(self._columns)
+
+	def indexForElement(self, element, num_col=0):
+		parent, num_row = self._n[element]
+		return self.createIndex(num_row, num_col, element)
+
+	def removeElementAtIndex(self, index, element=None):
+		parent_index = self.parent(index)
+		parent_element = parent_index.internalPointer() if parent_index.isValid() else self._root
+		# from qt documentation: is important to notify any connected views about changes to the model's dimensions both
+		# before and after they occur (otherwise it the view will constantly ask for the parent of the removed element)
+		self.beginRemoveRows(parent_index, index.row(), index.row())
+		element = index.internalPointer() if element is None else element
+		#self._remove_from_internal_dict(element)
+		parent_element.remove(element)
+		# index must be rebuilt, as row-numbers have changed!
+		self._init_internal_dict()
+		self.endRemoveRows()
+
+	def removeAll(self):
+		self.beginResetModel()
+		self._root.clear()
+		self._init_internal_dict()
+		self.endResetModel()
+
+	def addElement(self, element):
+		# parameters first and last of beginInsertRows() are the row numbers that the new rows will have
+		row_number = len(self._root) + 1
+		self.beginInsertRows(QModelIndex(), row_number, row_number)
+		self._root.append(element)
+		self._init_internal_dict()
+		#self._n[element] = (self._root, row_number)
+		#self._init_element(element)
+		self.endInsertRows()
 
 
 class QueueModel(ElementTreeModel):
@@ -73,10 +116,3 @@ class QueueModel(ElementTreeModel):
 		if item.tag == "item":
 			return 0
 		return len(item)
-
-	def _rebuild_index(self):
-		# (don't know if this version does speedup lookups)
-		self._n = dict((child, (parent, row_index))
-							for parent in self._root.iter()
-							for row_index, child in enumerate(parent)
-							if parent.tag in ("clipboard", "package"))

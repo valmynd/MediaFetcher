@@ -10,7 +10,6 @@ class DownloadModel(QueueModel):
 
 	def __init__(self, path_to_xml_file):
 		QueueModel.__init__(self, path_to_xml_file)
-
 		self.queue = Queue()
 		self.pool = Pool(processes=4, initializer=self._pool_init, initargs=(self.queue,))
 
@@ -19,14 +18,6 @@ class DownloadModel(QueueModel):
 		# see http://stackoverflow.com/a/3843313/852994
 		#extract_url._queue = queue
 		pass
-
-	def _rebuild_index(self):
-		# this variant of ElementTreeModel is mutable -> _n must be flushed every time
-		self._n = {}
-		for parent in self._root.iter():
-			if parent.tag in ("clipboard", "package"):
-				for row_index, element in enumerate(parent):
-					self._n[element] = (parent, row_index)
 
 	def flags(self, index):
 		if index.column() == 0:

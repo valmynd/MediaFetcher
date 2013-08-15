@@ -28,3 +28,6 @@ class DownloadView(QueueTreeView):
 	def showContextMenu(self, pos):
 		globalPos = self.mapToGlobal(pos)
 		self.downloadMenu.exec_(globalPos)
+
+	def addClipboardElement(self, element):
+		self.model().addElement(element) # forward to model

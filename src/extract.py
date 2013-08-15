@@ -77,12 +77,13 @@ def extract_url(url):
 	Extract information from URL using a Backend
 	Puts data into multiprocessing.Queue Object
 	Queue is assigned to this function here:
-		views.clipboard.ClipBoardView._pool_init()
+		models.clipboardmodel.ClipBoardModel._pool_init()
 
 	Goal: list of Backends with configurable priorities
 	"""
 	try:
 		xml = extract_url_using_youtubedl(url)
+		#raise Exception("TEST")
 		extract_url._queue.put((url, xml))
 	except Exception as e:
 		print(e)

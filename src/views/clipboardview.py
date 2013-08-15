@@ -81,20 +81,21 @@ class InfoBoxDialog(QDialog):
 class ClipBoardView(QueueTreeView):
 	_ignored_columns = ['Description']
 
-	def __init__(self):
+	def __init__(self, download_view):
 		#from xml.etree import ElementTree as etree
-		#model = ElementTreeModel(etree.parse("models/clipboard_example.xml").getroot())
-		#model = QueueModel("models/clipboard_example.xml")
-		model = ClipBoardModel("models/clipboard_example.xml")
-		QueueTreeView.__init__(self, model)
-		self.setItemDelegateForColumn(3, ComboBoxDelegate(self, model))
-		self.setItemDelegateForColumn(4, ComboBoxDelegate(self, model))
+		#clipboard_model = ElementTreeModel(etree.parse("models/clipboard_example.xml").getroot())
+		#clipboard_model = QueueModel("models/clipboard_example.xml")
+		clipboard_model = ClipBoardModel("models/clipboard_example.xml")
+		QueueTreeView.__init__(self, clipboard_model)
+		self.setItemDelegateForColumn(3, ComboBoxDelegate(self, clipboard_model))
+		self.setItemDelegateForColumn(4, ComboBoxDelegate(self, clipboard_model))
+		self.download_view = download_view
 
 		self.clipBoardMenu = QMenu()
 		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
 		download_all = QAction('Download All', self, triggered=self.downloadAll)
-		remove_selected = QAction('Remove Selected', self, triggered=self.downloadSelected)
-		remove_all = QAction('Remove All', self, triggered=self.downloadSelected)
+		remove_selected = QAction('Remove Selected', self, triggered=self.removeSelected)
+		remove_all = QAction('Remove All', self, triggered=self.removeAll)
 		info_action = QAction('Info', self, triggered=self.showInfo)
 		self.clipBoardMenu.addAction(download_selected)
 		self.clipBoardMenu.addAction(download_all)
@@ -111,10 +112,20 @@ class ClipBoardView(QueueTreeView):
 		pass
 
 	def downloadSelected(self):
-		#for num_row in self.getSelectedRows():
-		#	self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
-		#	self.removeRow(num_row)
-		pass
+		for index in self.selectedIndexes():
+			if index.column() == 0: # would loop through all columns each row
+				#self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
+				element = index.internalPointer()
+				self.download_view.addClipboardElement(element)
+				self.model().removeElementAtIndex(index, element)
+
+	def removeSelected(self):
+		for index in self.selectedIndexes():
+			if index.column() == 0: # would loop through all columns each row
+				self.model().removeElementAtIndex(index)
+
+	def removeAll(self):
+		self.model().removeAll()
 
 	def showInfo(self):
 		self.infobox.open_for_selection(self.selectedIndexes()[0])
