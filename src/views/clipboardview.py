@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from views.viewbase import *
 from models import ClipBoardModel
 
@@ -112,20 +113,10 @@ class ClipBoardView(QueueTreeView):
 		pass
 
 	def downloadSelected(self):
-		for index in self.selectedIndexes():
-			if index.column() == 0: # would loop through all columns each row
-				#self.parent_widget.downloadWidget.addItem(self.getDownloadItem(num_row))
+		for index in self.selectionModel().selectedRows():
 				element = index.internalPointer()
 				self.download_view.addClipboardElement(element)
-				self.model().removeElementAtIndex(index, element)
-
-	def removeSelected(self):
-		for index in self.selectedIndexes():
-			if index.column() == 0: # would loop through all columns each row
-				self.model().removeElementAtIndex(index)
-
-	def removeAll(self):
-		self.model().removeAll()
+				self.model().removeRow(index.row(), index.parent())
 
 	def showInfo(self):
 		self.infobox.open_for_selection(self.selectedIndexes()[0])

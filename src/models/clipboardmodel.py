@@ -51,12 +51,6 @@ class ClipBoardModel(QueueModel):
 			self.combo_boxes_format[element] = format_combobox
 			self.combo_boxes_quality[element] = quality_combobox
 
-	def _remove_from_internal_dict(self, element):
-		QueueModel._remove_from_internal_dict(self, element)
-		if element.tag == "item":
-			self.combo_boxes_format.pop(element)
-			self.combo_boxes_quality.pop(element)
-
 	def flags(self, index):
 		if index.column() == 0:
 			return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -118,11 +112,11 @@ class ClipBoardModel(QueueModel):
 			return
 		url, result = self.queue.get()
 		task = self._root.find("task[@url='%s']" % url)
+		parent, num_row = self._n[task]
 		if isinstance(result, Exception):
-			index = self.indexForElement(task, 2)
+			index = self.createIndex(num_row, 2, task)
 			self.setData(index, str(result), Qt.EditRole)
 			return
-		index = self.indexForElement(task)
+		self.removeRow(num_row)
 		element = etree.fromstring(result)
-		self.removeElementAtIndex(index, task)
 		self.addElement(element)

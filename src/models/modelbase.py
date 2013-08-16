@@ -24,14 +24,11 @@ class ElementTreeModel(QAbstractItemModel):
 
 	def _add_to_internal_dict(self, element, parent, num_row):
 		""" override this if something shall happen with newly added elements """
+		# initially i implemented a _remove_from_internal_dict() counterpart, but that doesn't make sense since
+		# usually dozens of row-numbers must change if an element is removed -> index shall be rebuilt, then!
 		self._n[element] = (parent, num_row)
 		for num_row, child in enumerate(element):
 			self._add_to_internal_dict(child, element, num_row)
-
-	def _remove_from_internal_dict(self, element):
-		for child in list(element):
-			self._remove_from_internal_dict(child)
-		self._n.pop(element)
 
 	def data(self, index, role):
 		""" data is retrieved via data(), implement setData() for data to be written! """
@@ -50,12 +47,20 @@ class ElementTreeModel(QAbstractItemModel):
 			return self._columns[section]
 
 	def index(self, row, column, parent=QModelIndex()):
-		""" this method must be implemented, returns some Index object, is used by qt internally """
-		parent_item = parent.internalPointer() if parent.isValid() else self._root
-		return self.createIndex(row, column, parent_item[row])
+		""" returns QModelIndex object at row, column under parent, is used by qt internally """
+		parent_element = parent.internalPointer() if parent.isValid() else self._root
+		try:
+			return self.createIndex(row, column, parent_element[row])
+		except IndexError:
+			if hasattr(self, "_remove_rows_active") and self._remove_rows_active:
+				# beginRemoveRows() will ask for the row next row, even if it is the last!
+				if row == len(parent_element):
+					return QModelIndex()
+			print("tried Row: %s" % row)
+			raise
 
 	def parent(self, index):
-		""" this method must be implemented, returns some Index object, is used by qt internally """
+		""" returns QModelIndex object for the parent element, is used by qt internally """
 		if not index.isValid():
 			return QModelIndex()
 		parent_item, num_row = self._n[index.internalPointer()]
@@ -70,22 +75,38 @@ class ElementTreeModel(QAbstractItemModel):
 	def columnCount(self, parent):
 		return len(self._columns)
 
-	def indexForElement(self, element, num_col=0):
-		parent, num_row = self._n[element]
-		return self.createIndex(num_row, num_col, element)
-
-	def removeElementAtIndex(self, index, element=None):
-		parent_index = self.parent(index)
-		parent_element = parent_index.internalPointer() if parent_index.isValid() else self._root
+	def removeRows(self, row, count, parent=QModelIndex()):
+		parent_element = parent.internalPointer() if parent.isValid() else self._root
 		# from qt documentation: is important to notify any connected views about changes to the model's dimensions both
-		# before and after they occur (otherwise it the view will constantly ask for the parent of the removed element)
-		self.beginRemoveRows(parent_index, index.row(), index.row())
-		element = index.internalPointer() if element is None else element
-		#self._remove_from_internal_dict(element)
-		parent_element.remove(element)
-		# index must be rebuilt, as row-numbers have changed!
+		# before and after they occur (otherwise the view will relentlessly ask for the parent of the removed element!)
+		self._remove_rows_active = True  # flag for exception in index()
+		self.beginRemoveRows(parent, row, row + count - 1)
+		self._remove_rows_active = False
+		indexes = [self.index(row + i, 0, parent) for i in range(count)]
+		elements = [index.internalPointer() for index in indexes]
+		for element in elements:
+			parent_element.remove(element)
+		# the internal dict must be rebuilt, as row-numbers have changed!
 		self._init_internal_dict()
 		self.endRemoveRows()
+		return True
+
+	def removeListOfRows(self, rows=[], parent=QModelIndex()):
+		# the rows will be removed in groups where one row follows another
+		rows.sort(reverse=True)
+		count = 1
+		last = -1
+		for row in list(rows):
+			if last - row == 1:
+				if last != -1:
+					count += 1
+			elif last != -1:
+				break
+			last = row
+			rows.remove(row)
+		self.removeRows(last, count, parent)
+		if len(rows) > 0:  # do the same thing with the next cluster
+			self.removeListOfRows(rows, parent)
 
 	def removeAll(self):
 		self.beginResetModel()
@@ -95,12 +116,10 @@ class ElementTreeModel(QAbstractItemModel):
 
 	def addElement(self, element):
 		# parameters first and last of beginInsertRows() are the row numbers that the new rows will have
-		row_number = len(self._root) + 1
+		row_number = len(self._root)
 		self.beginInsertRows(QModelIndex(), row_number, row_number)
 		self._root.append(element)
-		self._init_internal_dict()
-		#self._n[element] = (self._root, row_number)
-		#self._init_element(element)
+		self._add_to_internal_dict(element, self._root, row_number)
 		self.endInsertRows()
 
 
