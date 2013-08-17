@@ -47,38 +47,6 @@ class ComboBoxDelegate(QStyledItemDelegate):
 			self.parent().openPersistentEditor(index)
 
 
-class InfoBoxDialog(QDialog):
-	def __init__(self, parent_widget, model):
-		QDialog.__init__(self, parent_widget)
-		self.setWindowTitle("Clipboard Item Description")
-		title_field = QLineEdit()
-		description_field = QPlainTextEdit()
-		#description_field.setReadOnly(True) # wouldn't make sense to edit this (?)
-		thumbnail_field = QLabel()
-		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-		buttonbox.accepted.connect(self.submit)
-		buttonbox.rejected.connect(self.close)
-		layout = QFormLayout()
-		layout.addRow(QLabel("Title:"), title_field)
-		layout.addRow(QLabel("Description:"), description_field)
-		layout.addRow(QLabel("Thumbnail:"), thumbnail_field)
-		layout.addRow(buttonbox)
-		self.mapper = QDataWidgetMapper(self)
-		self.mapper.setModel(model)
-		self.mapper.addMapping(title_field, 0)
-		self.mapper.addMapping(description_field, 5)
-		self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
-		self.setLayout(layout)
-
-	def open_for_selection(self, selected_index):
-		self.mapper.setCurrentModelIndex(selected_index)
-		self.exec_()
-
-	def submit(self):
-		self.mapper.submit()
-		self.close()
-
-
 class ClipBoardView(QueueTreeView):
 	_ignored_columns = ['Description']
 
@@ -107,16 +75,19 @@ class ClipBoardView(QueueTreeView):
 
 	def showContextMenu(self, pos):
 		globalPos = self.mapToGlobal(pos)
-		selectedItem = self.clipBoardMenu.exec_(globalPos)
+		self.clipBoardMenu.exec_(globalPos)
 
 	def downloadAll(self):
-		pass
+		for element in list(self.model()._root):
+			self.download_view.addClipboardElement(element)
+		self.removeAll()
 
 	def downloadSelected(self):
-		for index in self.selectionModel().selectedRows():
-				element = index.internalPointer()
-				self.download_view.addClipboardElement(element)
-				self.model().removeRow(index.row(), index.parent())
+		# selectedRows() returns the indices in the chronology they were selected, which in this case is perfect
+		elements = [index.internalPointer() for index in self.selectionModel().selectedRows()]
+		self.removeSelected()  # this will detach otherwise problematic parent->child relationships
+		for element in elements:  # the element objects were not garbage-collected, as they're still in that list
+			self.download_view.addClipboardElement(element)
 
 	def showInfo(self):
 		self.infobox.open_for_selection(self.selectedIndexes()[0])

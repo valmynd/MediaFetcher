@@ -30,7 +30,12 @@ class DownloadModel(QueueModel):
 			num_col = index.column()
 			if element.tag == 'item':
 				if num_col == 0:
-					return "Filename"
+					return element.attrib["title"]
+				elif num_col == 1:
+					return element.attrib.get("host")
+			elif element.tag == 'package':
+				if num_col == 0:
+					return element.attrib["name"]
 
 	def setData(self, index, value, role):
 		if role != Qt.EditRole or value == "":

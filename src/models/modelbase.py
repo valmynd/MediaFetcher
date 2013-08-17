@@ -34,12 +34,12 @@ class ElementTreeModel(QAbstractItemModel):
 		""" data is retrieved via data(), implement setData() for data to be written! """
 		# index.internalPointer() -> internal data for requested row
 		# index.column() -> number of requested column
-		if not (index.isValid() and role == Qt.DisplayRole):
-			return
-		element = index.internalPointer()
-		if index.column() == 0:
-			return element.tag
-		return ";".join("%s=\"%s\"" % (k, v) for k, v in element.items())
+		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
+			# note: if Qt.EditRole ain't accepted, QDataWidgetMapper wouldn't work properly
+			element = index.internalPointer()
+			if index.column() == 0:
+				return element.tag
+			return ";".join("%s=\"%s\"" % (k, v) for k, v in element.items())
 
 	def headerData(self, section, orientation, role):
 		""" return header by column number (here called section) """
@@ -56,7 +56,7 @@ class ElementTreeModel(QAbstractItemModel):
 				# beginRemoveRows() will ask for the row next row, even if it is the last!
 				if row == len(parent_element):
 					return QModelIndex()
-			print("tried Row: %s" % row)
+			print("tried Row: %s in %s" % (row, str(parent_element)))
 			raise
 
 	def parent(self, index):
@@ -76,6 +76,7 @@ class ElementTreeModel(QAbstractItemModel):
 		return len(self._columns)
 
 	def removeRows(self, row, count, parent=QModelIndex()):
+		""" implementation of QAbstractItemModel.removeRows(), called by most other remove*() methods """
 		parent_element = parent.internalPointer() if parent.isValid() else self._root
 		# from qt documentation: is important to notify any connected views about changes to the model's dimensions both
 		# before and after they occur (otherwise the view will relentlessly ask for the parent of the removed element!)
@@ -92,11 +93,13 @@ class ElementTreeModel(QAbstractItemModel):
 		return True
 
 	def removeListOfRows(self, rows=[], parent=QModelIndex()):
+		""" variant of removeRows() which takes a lists of rows allowing gaps between the rows """
 		# the rows will be removed in groups where one row follows another
+		# remove the last rows first to avoid errors with missing indices!
 		rows.sort(reverse=True)
 		count = 1
 		last = -1
-		for row in list(rows):
+		for row in rows.copy():
 			if last - row == 1:
 				if last != -1:
 					count += 1
@@ -108,7 +111,36 @@ class ElementTreeModel(QAbstractItemModel):
 		if len(rows) > 0:  # do the same thing with the next cluster
 			self.removeListOfRows(rows, parent)
 
+	def removeScatteredRows(self, selected_indexes=[]):
+		""" variant of removeRows() which takes a lists of selected indices no matter to which parent they belong """
+		# QAbstractItemModel.removeRows() expects the removed rows to be one after another and within the same parent!
+		# corrupting the tree structure must be avoided! initially the idea was that rows that were missed to remove
+		# in a first run would still be selected, so they could be removed in a next run, but that was not entirelly
+		# true, as sometimes the rows that were still selected were different from the initially selected...
+		# strategy: remove the last rows with the deepest nesting first to avoid errors because of missing indices
+		rows_by_parent = {}
+		parents_by_depth = {}
+		# indices within QItemSelectionModel are in the order in which they were selected -> we must sort them by depth!
+		for index in selected_indexes:
+			parent = index.parent()
+			if parent not in rows_by_parent:
+				rows_by_parent[parent] = []
+			rows_by_parent[parent].append(index.row())
+		for index in rows_by_parent.keys():
+			depth = get_depth_of_index(index)
+			if depth not in parents_by_depth:
+				parents_by_depth[depth] = []
+			parents_by_depth[depth].append(index)
+		descending_depths = sorted(parents_by_depth.keys(), reverse=True)
+		for depth in descending_depths:
+			# that list of parent elements within the current depth must be ordered by their rownumbers!
+			parents_by_depth[depth].sort(key=lambda i: i.row(), reverse=True)
+			# print([i.row() for i in parents_by_depth[depth]])
+			for parent in parents_by_depth[depth]:
+				self.removeListOfRows(rows_by_parent[parent], parent)
+
 	def removeAll(self):
+		""" variant of removeRows() which flushes the entire tree """
 		self.beginResetModel()
 		self._root.clear()
 		self._init_internal_dict()
@@ -135,3 +167,12 @@ class QueueModel(ElementTreeModel):
 		if item.tag == "item":
 			return 0
 		return len(item)
+
+
+def get_depth_of_index(index):
+	""" return (int) depth of an QModelIndex in a QTreeView """
+	depth = 0
+	while index.isValid():
+		index = index.parent()
+		depth += 1
+	return depth

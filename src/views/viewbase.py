@@ -2,6 +2,38 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 
+class InfoBoxDialog(QDialog):
+	def __init__(self, parent_widget, model):
+		QDialog.__init__(self, parent_widget)
+		self.setWindowTitle("Clipboard Item Description")
+		title_field = QLineEdit()
+		description_field = QPlainTextEdit()
+		#description_field.setReadOnly(True) # wouldn't make sense to edit this (?)
+		thumbnail_field = QLabel()
+		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+		buttonbox.accepted.connect(self.submit)
+		buttonbox.rejected.connect(self.close)
+		layout = QFormLayout()
+		layout.addRow(QLabel("Title:"), title_field)
+		layout.addRow(QLabel("Description:"), description_field)
+		layout.addRow(QLabel("Thumbnail:"), thumbnail_field)
+		layout.addRow(buttonbox)
+		self.mapper = QDataWidgetMapper(self)
+		self.mapper.setModel(model)
+		self.mapper.addMapping(title_field, 0)
+		self.mapper.addMapping(description_field, 5)
+		self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
+		self.setLayout(layout)
+
+	def open_for_selection(self, selected_index):
+		self.mapper.setCurrentModelIndex(selected_index)
+		self.exec_()
+
+	def submit(self):
+		self.mapper.submit()
+		self.close()
+
+
 class QueueTreeView(QTreeView):
 	_ignored_columns = [] # columns that would break the table layout, e.g. multiline descriptions, thumbnails
 
@@ -31,31 +63,7 @@ class QueueTreeView(QTreeView):
 		self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
 	def removeSelected(self):
-		# QAbstractItemModel.removeRows() expects the removed rows to be one after another and within the same parent!
-		# corrupting the tree structure must be avoided! initially the idea was that rows that were missed to remove
-		# in a first run would still be selected, so they could be removed in a next run, but that was not entirelly
-		# true, as sometimes the rows that were still selected were different from the initially selected...
-		# strategy: remove the last rows with the deepest nesting first to avoid errors because of missing indices
-		rows_by_parent = {}
-		parents_by_depth = {}
-		# indices within QItemSelectionModel are in the order in which they were selected -> we must sort them by depth!
-		for index in self.selectionModel().selectedRows():
-			parent = index.parent()
-			if parent not in rows_by_parent:
-				rows_by_parent[parent] = []
-			rows_by_parent[parent].append(index.row())
-		for index in rows_by_parent.keys():
-			depth = get_depth_of_index(index)
-			if depth not in parents_by_depth:
-				parents_by_depth[depth] = []
-			parents_by_depth[depth].append(index)
-		descending_depths = sorted(parents_by_depth.keys(), reverse=True)
-		for depth in descending_depths:
-			# that list of parent elements within the current depth must be ordered by their rownumbers!
-			parents_by_depth[depth].sort(key=lambda i: i.row(), reverse=True)
-			# print([i.row() for i in parents_by_depth[depth]])
-			for parent in parents_by_depth[depth]:
-				self.model().removeListOfRows(rows_by_parent[parent], parent)
+		self.model().removeScatteredRows(self.selectionModel().selectedRows())
 
 	def removeAll(self):
 		self.model().removeAll()
@@ -74,10 +82,3 @@ class QueueTreeView(QTreeView):
 
 	def updateProgress(self):
 		pass
-
-
-def get_depth_of_index(index, i=0):
-	""" return (int) depth of an QModelIndex in a QTreeView """
-	if index.isValid():
-		return get_depth_of_index(index.parent(), i + 1)
-	return i

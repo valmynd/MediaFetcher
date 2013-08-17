@@ -57,31 +57,27 @@ class ClipBoardModel(QueueModel):
 		return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 	def data(self, index, role):
-		if not (index.isValid() and role in (Qt.DisplayRole, Qt.EditRole)):
-			# if Qt.EditRole ain't accepted, QDataWidgetMapper wouldn't work properly
-			return None
-		# columns 3, 4 are handled via ComboBoxDelegate
-		element = index.internalPointer()
-		num_col = index.column()
-		if element.tag == 'item':
-			if num_col == 0:
-				return element.attrib["title"]
-			elif num_col == 1:
-				return element.attrib.get("host")
-			elif num_col == 2:
-				return 'Available'
-			elif num_col == 5:
-				return element.attrib.get("description")
-		elif element.tag == 'package':
-			if num_col == 0:
-				return element.attrib["name"]
-			elif num_col == 2:
-				return 'Available'
-		elif element.tag == 'task':
-			if num_col == 0:
-				return element.attrib["url"]
-			elif num_col == 2:
-				return element.attrib.get("status", "Extracting")
+		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
+			# columns 3, 4 are handled via ComboBoxDelegate
+			element = index.internalPointer()
+			num_col = index.column()
+			if element.tag == 'item':
+				if num_col == 0:
+					return element.attrib["title"]
+				elif num_col == 1:
+					return element.attrib.get("host")
+				elif num_col == 2:
+					return 'Available'
+				elif num_col == 5:
+					return element.attrib.get("description")
+			elif element.tag == 'package':
+				if num_col == 0:
+					return element.attrib["name"]
+			elif element.tag == 'task':
+				if num_col == 0:
+					return element.attrib["url"]
+				elif num_col == 2:
+					return element.attrib.get("status", "Extracting")
 
 	def setData(self, index, value, role):
 		if role != Qt.EditRole:

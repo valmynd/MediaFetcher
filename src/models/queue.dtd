@@ -1,25 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!ELEMENT clipboard (item+, package+)>
+<!ELEMENT queue (task, item+, package+)>
+<!ELEMENT task EMPTY>
+<!ATTLIST task
+	url CDATA #REQUIRED
+	status CDATA #REQUIRED
+>
 <!ELEMENT item (subtitle*, format+)>
 <!ATTLIST item
-	id NMTOKEN #IMPLIED
 	title CDATA #REQUIRED
+	url CDATA #REQUIRED
+	status CDATA #REQUIRED
 	host CDATA #IMPLIED
 	description CDATA #IMPLIED
 	thumbnail CDATA #IMPLIED
 	selected CDATA #IMPLIED
+	path CDATA #IMPLIED
 >
 <!ELEMENT package (item+)>
 <!ATTLIST package
 	name CDATA #REQUIRED
+	url CDATA #REQUIRED
 >
 <!ATTLIST item
-	id NMTOKEN #IMPLIED
 	title CDATA #REQUIRED
+	url CDATA #REQUIRED
+	status CDATA #REQUIRED
 	host CDATA #IMPLIED
 	description CDATA #IMPLIED
 	thumbnail CDATA #IMPLIED
 	selected CDATA #IMPLIED
+	path CDATA #IMPLIED
 >
 <!ELEMENT subtitle EMPTY>
 <!ATTLIST subtitle

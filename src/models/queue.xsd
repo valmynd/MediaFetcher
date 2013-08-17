@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- edited with XMLSpy v2011 sp1 (http://www.altova.com) by End User (free.org) -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
-	<xs:element name="clipboard">
+	<xs:element name="queue">
 		<xs:annotation>
-			<xs:documentation>root element</xs:documentation>
+			<xs:documentation>Schema used by both Clipboard- and DownloadModel</xs:documentation>
 		</xs:annotation>
 		<xs:complexType>
 			<xs:sequence>
@@ -13,9 +12,9 @@
 					</xs:annotation>
 					<xs:complexType>
 						<xs:attribute name="url" type="xs:string" use="required"/>
-						<xs:attribute name="status" type="xs:string" default="Extracting">
+						<xs:attribute name="status" type="xs:string" use="required">
 							<xs:annotation>
-								<xs:documentation>may contain failure notices</xs:documentation>
+								<xs:documentation>may contain either failure notices or just 'Ready' or 'Avaiable'</xs:documentation>
 							</xs:annotation>
 						</xs:attribute>
 					</xs:complexType>
@@ -30,11 +29,6 @@
 						<xs:attribute name="url" type="xs:string" use="required">
 							<xs:annotation>
 								<xs:documentation>originally pasted url</xs:documentation>
-							</xs:annotation>
-						</xs:attribute>
-						<xs:attribute name="path">
-							<xs:annotation>
-								<xs:documentation>download path</xs:documentation>
 							</xs:annotation>
 						</xs:attribute>
 					</xs:complexType>
@@ -99,6 +93,11 @@
 		<xs:attribute name="url" type="xs:string" use="required">
 			<xs:annotation>
 				<xs:documentation>originally pasted url</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="status" type="xs:string" use="required">
+			<xs:annotation>
+				<xs:documentation>may contain either failure notices or just 'Ready' or 'Avaiable'</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="host" type="xs:string">
