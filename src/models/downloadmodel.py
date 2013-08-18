@@ -20,9 +20,10 @@ class DownloadModel(QueueModel):
 		pass
 
 	def flags(self, index):
+		flags = QueueModel.flags(self, index)
 		if index.column() == 0:
-			return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
-		return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+			flags = flags | Qt.ItemIsEditable
+		return flags
 
 	def data(self, index, role):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):

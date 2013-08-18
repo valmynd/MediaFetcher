@@ -52,9 +52,10 @@ class ClipBoardModel(QueueModel):
 			self.combo_boxes_quality[element] = quality_combobox
 
 	def flags(self, index):
+		flags = QueueModel.flags(self, index)
 		if index.column() == 0:
-			return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
-		return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+			flags = flags | Qt.ItemIsEditable
+		return flags
 
 	def data(self, index, role):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
@@ -67,7 +68,7 @@ class ClipBoardModel(QueueModel):
 				elif num_col == 1:
 					return element.attrib.get("host")
 				elif num_col == 2:
-					return 'Available'
+					return element.attrib.get("status")
 				elif num_col == 5:
 					return element.attrib.get("description")
 			elif element.tag == 'package':
@@ -77,7 +78,7 @@ class ClipBoardModel(QueueModel):
 				if num_col == 0:
 					return element.attrib["url"]
 				elif num_col == 2:
-					return element.attrib.get("status", "Extracting")
+					return element.attrib.get("status")
 
 	def setData(self, index, value, role):
 		if role != Qt.EditRole:
@@ -100,7 +101,7 @@ class ClipBoardModel(QueueModel):
 
 	def addURL(self, url):
 		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """
-		self.addElement(etree.Element('task', url=url))
+		self.addElement(etree.Element('task', url=url, status="Extracting"))
 		self.pool.apply_async(func=extract_url, args=(url,))
 
 	def updateProgress(self):

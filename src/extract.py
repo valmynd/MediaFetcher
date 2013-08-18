@@ -47,7 +47,7 @@ def extract_url_using_youtubedl(url):
 
 	if info['_type'] == "compat_list":
 		# almost all (meta-)data is actually part of the "entries" (redundant)
-		item = Element('item', url=url,
+		item = Element('item', url=url, status="Available",
 							title=info['entries'][0]['title'],
 							host=info['entries'][0]['extractor'],
 							description=str(info['entries'][0].get('description')),

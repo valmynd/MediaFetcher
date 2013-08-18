@@ -61,6 +61,8 @@ class QueueTreeView(QTreeView):
 		self.header().setMaximumHeight(21)
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
 		self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+		self.setDragDropMode(QAbstractItemView.DragDrop)
+		self.setDropIndicatorShown(True)
 
 	def removeSelected(self):
 		self.model().removeScatteredRows(self.selectionModel().selectedRows())

@@ -8,6 +8,7 @@ class ElementTreeModel(QAbstractItemModel):
 
 	inspired by: https://pypi.python.org/pypi/EuroPython2006_PyQt4_Examples/
 	also read: http://qt-project.org/doc/qt-4.8/itemviews-simpletreemodel.html
+	qt5: http://qt-project.org/doc/qt-5.0/qtwidgets/model-view-programming.html#model-subclassing-reference
 	"""
 	_columns = ["Tag", "Attributes"]
 
@@ -73,7 +74,37 @@ class ElementTreeModel(QAbstractItemModel):
 		return len(item)
 
 	def columnCount(self, parent):
-		return len(self._columns)
+		# returning 1 is actually the trick to have the hole row selected as DropIndicator!
+		# alternative: return len(self._columns) // some behaviour would need to be adjusted, then
+		return 1
+
+	def supportedDropActions(self):
+		return Qt.MoveAction
+
+	def mimeTypes(self):
+		return ['text/xml']
+
+	def mimeData(self, indexes):
+		# indexes would contain doublettes, if columnCount() returns something else than 1!
+		strings = [etree.tostring(index.internalPointer(), encoding="unicode") for index in indexes]
+		clipboard = "<clipboard>%s</clipboard>" % "".join(strings)
+		mimedata = QMimeData()
+		mimedata.setData('text/xml', clipboard)
+		return mimedata
+
+	def dropMimeData(self, mimedata, action, row, column, parent):
+		if "text/xml" not in mimedata.formats():
+			return False
+		parent_element = parent.internalPointer() if parent.isValid() else self._root
+		elements = list(etree.fromstring(str(mimedata.data("text/xml"))))
+		row = len(parent_element) if row == -1 else row
+		self.beginInsertRows(parent, row, row + len(elements) - 1)
+		for element in reversed(elements):
+			parent_element.insert(row, element)
+		# the internal dict must be rebuilt, as row-numbers might have changed!
+		self._init_internal_dict()
+		self.endInsertRows()
+		return True
 
 	def removeRows(self, row, count, parent=QModelIndex()):
 		""" implementation of QAbstractItemModel.removeRows(), called by most other remove*() methods """
@@ -161,12 +192,25 @@ class QueueModel(ElementTreeModel):
 		root_element = etree.parse(path_to_xml_file).getroot()
 		ElementTreeModel.__init__(self, root_element)
 
+	def flags(self, index):
+		return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+
 	def rowCount(self, parent):
 		# Only "package" nodes should have children in the view!
 		item = parent.internalPointer() if parent.isValid() else self._root
 		if item.tag == "item":
 			return 0
 		return len(item)
+
+	def dropMimeData(self, mimedata, action, row, column, parent):
+		# Only "package" nodes should accept drops!
+		parent_element = parent.internalPointer() if parent.isValid() else self._root
+		if row == -1 and parent_element.tag not in ("queue", "package"):
+			element = parent_element
+			parent = parent.parent()
+			parent_element = parent.internalPointer() if parent.isValid() else self._root
+			row = list(parent_element).index(element)
+		return ElementTreeModel.dropMimeData(self, mimedata, action, row, column, parent)
 
 
 def get_depth_of_index(index):
