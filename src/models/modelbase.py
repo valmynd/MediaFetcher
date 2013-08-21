@@ -19,7 +19,7 @@ class ElementTreeModel(QAbstractItemModel):
 
 	def _init_internal_dict(self):
 		""" this method is used to put the xml data into an internal dictionary """
-		self._n = {}  # node information used in parent(): (element, (parent_element, row_index)
+		self._n = {}  # node information used in parent(): {element: (parent_element, num_row)}
 		for num_row, element in enumerate(self._root):
 			self._add_to_internal_dict(element, self._root, num_row)
 
@@ -74,9 +74,8 @@ class ElementTreeModel(QAbstractItemModel):
 		return len(item)
 
 	def columnCount(self, parent):
-		# returning 1 is actually the trick to have the hole row selected as DropIndicator!
-		# alternative: return len(self._columns) // some behaviour would need to be adjusted, then
-		return 1
+		# returning 1 would be a (dirty) workaround to have the hole row selected as DropIndicator
+		return len(self._columns)
 
 	def supportedDropActions(self):
 		return Qt.MoveAction
@@ -85,8 +84,8 @@ class ElementTreeModel(QAbstractItemModel):
 		return ['text/xml']
 
 	def mimeData(self, indexes):
-		# indexes would contain doublettes, if columnCount() returns something else than 1!
-		strings = [etree.tostring(index.internalPointer(), encoding="unicode") for index in indexes]
+		elements = [index.internalPointer() for index in indexes if index.column() == 0]
+		strings = [etree.tostring(element, encoding="unicode") for element in elements]
 		clipboard = "<clipboard>%s</clipboard>" % "".join(strings)
 		mimedata = QMimeData()
 		mimedata.setData('text/xml', clipboard)

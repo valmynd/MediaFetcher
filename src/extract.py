@@ -1,4 +1,4 @@
-from utils.youtube_dl.YoutubeDL import *
+from plugins.youtube_dl.YoutubeDL import *
 from xml.etree.ElementTree import Element, tostring
 import re
 

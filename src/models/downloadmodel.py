@@ -34,6 +34,8 @@ class DownloadModel(QueueModel):
 					return element.attrib["title"]
 				elif num_col == 1:
 					return element.attrib.get("host")
+				elif num_col == 2:
+					return element.attrib.get("status")
 			elif element.tag == 'package':
 				if num_col == 0:
 					return element.attrib["name"]

@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
 	import sys
-	from utils.youtube_dl.utils import *
+	from plugins.youtube_dl.utils import *
 	jar = compat_cookiejar.CookieJar()
 	cookie_processor = compat_urllib_request.HTTPCookieProcessor(jar)
 	proxy_handler = compat_urllib_request.ProxyHandler()
