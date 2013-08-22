@@ -23,26 +23,8 @@ def extract_url_using_youtubedl(url):
 	player_url:     SWF Player URL (used for rtmpdump).
 	ext:            Video filename extension.
 	format:         The video format -> optional, becomes 'quality'
-
-	The following fields are currently ignored:
-	id:             Video identifier.
-	uploader:       Full name of the video uploader.
-	upload_date:    Video upload date (YYYYMMDD).
-	uploader_id:    Nickname or id of the video uploader.
-	urlhandle:      [internal] (???)
 	"""
-	ydl = YoutubeDL(dict(format='all', format_limit=None, ignoreerrors=False, listformats=False,
-								consoletitle=False, continuedl=True, forcedescription=False, forcefilename=False,
-								forceformat=False, forcethumbnail=False, forcetitle=False, forceurl=False,
-								logtostderr=False, matchtitle=None, max_downloads=None, nooverwrites=False,
-								nopart=False, noprogress=False, password=None, username=None,
-								playlistend=-1, playliststart=1, prefer_free_formats=False, quiet=False,
-								ratelimit=None, rejecttitle=None, retries=10, simulate=False, skip_download=False,
-								subtitleslang=None, subtitlesformat="srt", test=True, updatetime=True,
-								usenetrc=False, verbose=True, writedescription=False,
-								writeinfojson=True, writesubtitles=False, onlysubtitles=False, allsubtitles=False,
-								listssubtitles=False, outtmpl="%(id)s.%(ext)s"))
-	ydl.add_default_info_extractors()
+	ydl = extract_url_using_youtubedl.ydl  # see pool_init()
 	info = ydl.extract_info(url, download=False)
 
 	if info['_type'] == "compat_list":
@@ -72,18 +54,47 @@ def extract_url_using_youtubedl(url):
 		raise Exception("Unexpected Type: %s" % info['_type'])
 
 
+def pool_init_for_youtubedl(function_to_apply_to):
+	# this can be used for both extract_url_using_youtubedl() and download_using_youtubedl()
+	jar = compat_cookiejar.CookieJar()
+	cookie_processor = compat_urllib_request.HTTPCookieProcessor(jar)
+	proxy_handler = compat_urllib_request.ProxyHandler()
+	opener = compat_urllib_request.build_opener(proxy_handler, cookie_processor, YoutubeDLHandler())
+	compat_urllib_request.install_opener(opener)
+	socket.setdefaulttimeout(60)
+	ydl = YoutubeDL(dict(format='all', format_limit=None, ignoreerrors=False, listformats=False,
+								consoletitle=False, continuedl=True, forcedescription=False, forcefilename=False,
+								forceformat=False, forcethumbnail=False, forcetitle=False, forceurl=False,
+								logtostderr=False, matchtitle=None, max_downloads=None, nooverwrites=False,
+								nopart=False, noprogress=False, password=None, username=None,
+								playlistend=-1, playliststart=1, prefer_free_formats=False, quiet=False,
+								ratelimit=None, rejecttitle=None, retries=10, simulate=False, skip_download=False,
+								subtitleslang=None, subtitlesformat="srt", test=True, updatetime=True,
+								usenetrc=False, verbose=True, writedescription=False,
+								writeinfojson=True, writesubtitles=False, onlysubtitles=False, allsubtitles=False,
+								listssubtitles=False, outtmpl="%(id)s.%(ext)s"))
+	ydl.add_default_info_extractors()
+	function_to_apply_to.ydl = ydl
+
+
+def pool_init(queue_object):
+	# Assign a Queue to the Function that will run in background here
+	# see http://stackoverflow.com/a/3843313/852994
+	extract_url._queue = queue_object
+	pool_init_for_youtubedl(extract_url_using_youtubedl)
+
+
 def extract_url(url):
 	"""
 	Extract information from URL using a Backend
 	Puts data into multiprocessing.Queue Object
-	Queue is assigned to this function here:
-		models.clipboardmodel.ClipBoardModel._pool_init()
+	Queue is assigned to this function in pool_init()
 
 	Goal: list of Backends with configurable priorities
 	"""
 	try:
 		xml = extract_url_using_youtubedl(url)
-		#raise Exception("TEST")
+		#raise Exception("Error: Test Error")
 		extract_url._queue.put((url, xml))
 	except Exception as e:
 		print(e)

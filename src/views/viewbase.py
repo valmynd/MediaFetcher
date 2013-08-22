@@ -55,6 +55,7 @@ class QueueTreeView(QTreeView):
 		# Setup Context Menu
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.customContextMenuRequested.connect(self.showContextMenu)
+		self.infobox = InfoBoxDialog(self, self.model())
 
 		# Other basic configuration
 		#self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
@@ -63,6 +64,12 @@ class QueueTreeView(QTreeView):
 		self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 		self.setDragDropMode(QAbstractItemView.DragDrop)
 		self.setDropIndicatorShown(True)
+
+	def showContextMenu(self, pos):
+		raise NotImplementedError()
+
+	def showInfo(self):
+		self.infobox.open_for_selection(self.selectedIndexes()[0])
 
 	def removeSelected(self):
 		self.model().removeScatteredRows(self.selectionModel().selectedRows())
@@ -78,9 +85,3 @@ class QueueTreeView(QTreeView):
 	def chooseColumns(self, pos):
 		globalPos = self.mapToGlobal(pos)
 		self.columnMenu.exec_(globalPos)
-
-	def showContextMenu(self, pos):
-		raise NotImplementedError
-
-	def updateProgress(self):
-		pass

@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
 		self.clipboard_view.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
 
 	def updateProgress(self):
-		self.tabBar.currentWidget().updateProgress()
+		self.tabBar.currentWidget().model().updateProgress()
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()
@@ -159,13 +159,6 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
 	import sys
-	from plugins.youtube_dl.utils import *
-	jar = compat_cookiejar.CookieJar()
-	cookie_processor = compat_urllib_request.HTTPCookieProcessor(jar)
-	proxy_handler = compat_urllib_request.ProxyHandler()
-	opener = compat_urllib_request.build_opener(proxy_handler, cookie_processor, YoutubeDLHandler())
-	compat_urllib_request.install_opener(opener)
-	socket.setdefaulttimeout(60)
 
 	app = QApplication(sys.argv)
 	main_window = MainWindow()

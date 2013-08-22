@@ -60,22 +60,23 @@ class ClipBoardView(QueueTreeView):
 		self.setItemDelegateForColumn(4, ComboBoxDelegate(self, clipboard_model))
 		self.download_view = download_view
 
-		self.clipBoardMenu = QMenu()
-		download_selected = QAction('Download Selected', self, triggered=self.downloadSelected)
-		download_all = QAction('Download All', self, triggered=self.downloadAll)
-		remove_selected = QAction('Remove Selected', self, triggered=self.removeSelected)
-		remove_all = QAction('Remove All', self, triggered=self.removeAll)
-		info_action = QAction('Info', self, triggered=self.showInfo)
-		self.clipBoardMenu.addAction(download_selected)
-		self.clipBoardMenu.addAction(download_all)
-		self.clipBoardMenu.addAction(remove_selected)
-		self.clipBoardMenu.addAction(remove_all)
-		self.clipBoardMenu.addAction(info_action)
-		self.infobox = InfoBoxDialog(self, self.model())
+		self.downloadSelectedAction = QAction('Download Selected', self, triggered=self.downloadSelected)
+		self.downloadAllAction = QAction('Download All', self, triggered=self.downloadAll)
+		self.removeSelectedAction = QAction('Remove Selected', self, triggered=self.removeSelected)
+		self.removeAllAction = QAction('Remove All', self, triggered=self.removeAll)
+		self.infoAction = QAction('Info', self, triggered=self.showInfo)
 
 	def showContextMenu(self, pos):
+		menu = QMenu()
+		menu.addAction(self.downloadSelectedAction)
+		menu.addAction(self.downloadAllAction)
+		menu.addSeparator()
+		menu.addAction(self.removeSelectedAction)
+		menu.addAction(self.removeAllAction)
+		menu.addSeparator()
+		menu.addAction(self.infoAction)
 		globalPos = self.mapToGlobal(pos)
-		self.clipBoardMenu.exec_(globalPos)
+		menu.exec_(globalPos)
 
 	def downloadAll(self):
 		for element in list(self.model()._root):
@@ -89,11 +90,5 @@ class ClipBoardView(QueueTreeView):
 		for element in elements:  # the element objects were not garbage-collected, as they're still in that list
 			self.download_view.addClipboardElement(element)
 
-	def showInfo(self):
-		self.infobox.open_for_selection(self.selectedIndexes()[0])
-
 	def addURL(self, url):
 		self.model().addURL(url)
-
-	def updateProgress(self):
-		return self.model().updateProgress() # forward to ClipBoardModel

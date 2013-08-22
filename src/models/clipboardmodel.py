@@ -1,7 +1,7 @@
 from models.modelbase import *
 from PySide.QtGui import QComboBox
 from multiprocessing import Pool, Queue
-from extract import extract_url
+from extract import extract_url, pool_init
 import tempfile
 import os
 
@@ -17,12 +17,7 @@ class ClipBoardModel(QueueModel):
 		QueueModel.__init__(self, path_to_xml_file)
 
 		self.queue = Queue()
-		self.pool = Pool(processes=2, initializer=self._pool_init, initargs=(self.queue,))
-
-	def _pool_init(self, queue):
-		# Assign a Queue to a Function that will run in background here
-		# see http://stackoverflow.com/a/3843313/852994
-		extract_url._queue = queue
+		self.pool = Pool(processes=2, initializer=pool_init, initargs=(self.queue,))
 
 	def _init_internal_dict(self):
 		# this variant of ElementTreeModel has additional dicts to manage:
