@@ -31,11 +31,10 @@ class MainWindow(QMainWindow):
 		self.timer.start(2000)
 
 	def _initActions(self):
-		self.openAction = QAction("&Open...", self, shortcut=QKeySequence.Open, triggered=self.open)
-		self.startAction = QAction("&Start All", self, triggered=self.dummy)
-		self.pauseAction = QAction("&Pause All", self, triggered=self.dummy)
-		self.toggleStatusBarAction = QAction("Statusbar", self, checkable=True, checked=True,
-											 triggered=self.toggleStatusBar)
+		self.openAction = QAction("&Open Container File", self, shortcut=QKeySequence.Open, triggered=self.open)
+		self.startAction = QAction("&Start Downloads", self, triggered=self.togglePause)
+		self.pauseAction = QAction("&Pause Downloads", self, triggered=self.togglePause)
+		self.statusBarAction = QAction("Statusbar", self, checkable=True, checked=True, triggered=self.toggleStatusBar)
 		self.settingsAction = QAction("Prefere&nces", self, triggered=self.dummy)
 		self.aboutAction = QAction("About", self, triggered=self.about)
 		self.searchAction = QAction("Search", self, triggered=self.search)
@@ -65,7 +64,7 @@ class MainWindow(QMainWindow):
 		self.editMenu.addAction(self.settingsAction)
 
 		self.viewMenu = QMenu("&View", self)
-		self.viewMenu.addAction(self.toggleStatusBarAction)
+		self.viewMenu.addAction(self.statusBarAction)
 
 		self.helpMenu = QMenu("&Help", self)
 		self.helpMenu.addAction(self.aboutAction)
@@ -78,16 +77,21 @@ class MainWindow(QMainWindow):
 	def _initToolBars(self):
 		# http://aseigo.blogspot.de/2006/08/sweep-sweep-sweep-ui-floor.html
 		self.searchBar = QLineEdit()
+		self.startButton = QToolButton(self)
+		self.startButton.setDefaultAction(self.startAction)
 		self.toolBar = self.addToolBar("Toolbar")
 		self.toolBar.addAction(self.openAction)
 		self.toolBar.addWidget(self.searchBar)
 		self.toolBar.addAction(self.searchAction)
 		#self.toolBar.addAction(self.startAction)
-		self.toolBar.addAction(self.pauseAction)
+		#self.toolBar.addAction(self.pauseAction)
+		self.toolBar.addWidget(self.startButton)
 		self.toolBar.addAction(self.settingsAction)
 		self.toolBar.setMovable(False)
-		#self.searchAction.setDisabled(True)
-		self.pauseAction.setDisabled(True) # QPushButton !
+
+	#self.searchAction.setDisabled(True)
+	#self.startAction.setEnabled(True)
+	#self.pauseAction.setEnabled(False)
 
 	def _initTrayIcon(self):
 		self.trayIconMenu = QMenu(self)
@@ -145,6 +149,7 @@ class MainWindow(QMainWindow):
 		#	text = self.searchBar.text().strip()
 		#if '//' in text: # contains URL
 		self.clipboard_view.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
+		self.tabBar.setCurrentWidget(self.clipboard_view)
 
 	def updateProgress(self):
 		self.tabBar.currentWidget().model().updateProgress()
@@ -155,6 +160,21 @@ class MainWindow(QMainWindow):
 	def trayActivated(self, reason):
 		if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
 			self.showNormal() if self.isHidden() else self.hide()
+
+	def togglePause(self):
+		if self.startButton.defaultAction() == self.pauseAction:
+			self.startButton.removeAction(self.pauseAction)
+			self.startButton.setDefaultAction(self.startAction)
+			self.startAction.setDisabled(False)
+			self.pauseAction.setDisabled(True)
+			self.download_view.model().pause()
+		else:
+			self.startButton.removeAction(self.startAction)
+			self.startButton.setDefaultAction(self.pauseAction)
+			self.pauseAction.setDisabled(False)
+			self.startAction.setDisabled(True)
+			self.tabBar.setCurrentWidget(self.download_view)
+			self.download_view.model().start()
 
 
 if __name__ == '__main__':

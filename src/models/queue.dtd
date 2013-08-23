@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!ELEMENT queue (task, item+, package+)>
+<!ELEMENT queue (task*, item*, package*)>
 <!ELEMENT task EMPTY>
 <!ATTLIST task
 	url CDATA #REQUIRED
@@ -13,13 +13,13 @@
 	host CDATA #IMPLIED
 	description CDATA #IMPLIED
 	thumbnail CDATA #IMPLIED
-	selected CDATA #IMPLIED
 	path CDATA #IMPLIED
+	filename CDATA #IMPLIED
+	selected CDATA #IMPLIED
 >
 <!ELEMENT package (item+)>
 <!ATTLIST package
 	name CDATA #REQUIRED
-	url CDATA #REQUIRED
 >
 <!ATTLIST item
 	title CDATA #REQUIRED
@@ -28,8 +28,9 @@
 	host CDATA #IMPLIED
 	description CDATA #IMPLIED
 	thumbnail CDATA #IMPLIED
-	selected CDATA #IMPLIED
 	path CDATA #IMPLIED
+	filename CDATA #IMPLIED
+	selected CDATA #IMPLIED
 >
 <!ELEMENT subtitle EMPTY>
 <!ATTLIST subtitle
@@ -44,7 +45,6 @@
 <!ELEMENT option EMPTY>
 <!ATTLIST option
 	quality CDATA #REQUIRED
-	url CDATA #REQUIRED
-	location CDATA #IMPLIED
+	download_url CDATA #REQUIRED
 	player_url CDATA #IMPLIED
 >

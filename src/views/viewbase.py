@@ -35,7 +35,8 @@ class InfoBoxDialog(QDialog):
 
 
 class QueueTreeView(QTreeView):
-	_ignored_columns = [] # columns that would break the table layout, e.g. multiline descriptions, thumbnails
+	_ignored_columns = []  # columns that would break the table layout, e.g. multiline descriptions, thumbnails
+	_hidden_columns = []  # columns that were deselected by the user or by default TODO: read/store config
 
 	def __init__(self, model):
 		QTreeView.__init__(self)
@@ -49,7 +50,12 @@ class QueueTreeView(QTreeView):
 			if column_title in self._ignored_columns:
 				self.setColumnHidden(i, True)
 				continue
-			qa = QAction(column_title, self, checkable=True, checked=True, triggered=self.toggleColumn)
+			qa = QAction(column_title, self, checkable=True, triggered=self.toggleColumn)
+			if column_title in self._hidden_columns:
+				self.setColumnHidden(i, True)
+				qa.setChecked(False)
+			else:
+				qa.setChecked(True)
 			self.columnMenu.addAction(qa)
 
 		# Setup Context Menu
@@ -77,8 +83,9 @@ class QueueTreeView(QTreeView):
 	def removeAll(self):
 		self.model().removeAll()
 
-	def toggleColumn(self):
-		column_title = self.sender().text()
+	def toggleColumn(self, column_title=None):
+		if column_title is None:
+			column_title = self.sender().text()
 		i = self.model()._columns.index(column_title)
 		self.setColumnHidden(i, not self.isColumnHidden(i))
 

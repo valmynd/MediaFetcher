@@ -6,7 +6,7 @@
 		</xs:annotation>
 		<xs:complexType>
 			<xs:sequence>
-				<xs:element name="task">
+				<xs:element name="task" minOccurs="0" maxOccurs="unbounded">
 					<xs:annotation>
 						<xs:documentation>task elements are replaced as soon as information from the respective url is extracted</xs:documentation>
 					</xs:annotation>
@@ -14,23 +14,18 @@
 						<xs:attribute name="url" type="xs:string" use="required"/>
 						<xs:attribute name="status" type="xs:string" use="required">
 							<xs:annotation>
-								<xs:documentation>may contain either failure notices or just 'Ready' or 'Avaiable'</xs:documentation>
+								<xs:documentation>may failure notices or either 'Extracting' or 'Available'</xs:documentation>
 							</xs:annotation>
 						</xs:attribute>
 					</xs:complexType>
 				</xs:element>
-				<xs:element name="item" type="itemType" maxOccurs="unbounded"/>
-				<xs:element name="package" maxOccurs="unbounded">
+				<xs:element name="item" type="itemType" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element name="package" minOccurs="0" maxOccurs="unbounded">
 					<xs:complexType>
 						<xs:sequence>
 							<xs:element name="item" type="itemType" maxOccurs="unbounded"/>
 						</xs:sequence>
 						<xs:attribute name="name" use="required"/>
-						<xs:attribute name="url" type="xs:string" use="required">
-							<xs:annotation>
-								<xs:documentation>originally pasted url</xs:documentation>
-							</xs:annotation>
-						</xs:attribute>
 					</xs:complexType>
 				</xs:element>
 			</xs:sequence>
@@ -58,14 +53,9 @@
 										<xs:documentation>e.g. 720p</xs:documentation>
 									</xs:annotation>
 								</xs:attribute>
-								<xs:attribute name="url" type="xs:string" use="required">
+								<xs:attribute name="download_url" type="xs:string" use="required">
 									<xs:annotation>
 										<xs:documentation>link to the actual file</xs:documentation>
-									</xs:annotation>
-								</xs:attribute>
-								<xs:attribute name="location" type="xs:string">
-									<xs:annotation>
-										<xs:documentation>Physical location of the video. (???)</xs:documentation>
 									</xs:annotation>
 								</xs:attribute>
 								<xs:attribute name="player_url" type="xs:string">
@@ -97,7 +87,7 @@
 		</xs:attribute>
 		<xs:attribute name="status" type="xs:string" use="required">
 			<xs:annotation>
-				<xs:documentation>may contain either failure notices or just 'Ready' or 'Avaiable'</xs:documentation>
+				<xs:documentation>may contain failure notices or either 'Available', 'Queued', 'Progressing' or 'Ready'</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="host" type="xs:string">
@@ -115,14 +105,19 @@
 				<xs:documentation>URL for thumbnail</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="path" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>download path</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="filename" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>final name of the file on the disk, may contain template</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="selected" type="xs:string">
 			<xs:annotation>
 				<xs:documentation>currently selected format, e.g. flv</xs:documentation>
-			</xs:annotation>
-		</xs:attribute>
-		<xs:attribute name="path">
-			<xs:annotation>
-				<xs:documentation>download path</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 	</xs:complexType>

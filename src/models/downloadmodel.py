@@ -6,13 +6,12 @@ import os
 
 
 class DownloadModel(QueueModel):
-	_columns = ['Filename', 'Host', 'Status', 'Progress', 'Path']
-
 	def __init__(self, path_to_xml_file):
 		QueueModel.__init__(self, path_to_xml_file)
 
-		self.queue = Queue()
-		self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.queue,))
+		self.commandqueue = Queue()  # contains commands such as "abort", "requeue"
+		self.resultqueue = Queue()   # contains result tuples as such: (url, status, size_written, remote_size)
+		self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.commandqueue, self.resultqueue,))
 
 	def _init_internal_dict(self):
 		# this variant of ElementTreeModel has additional dicts to manage:
@@ -22,10 +21,10 @@ class DownloadModel(QueueModel):
 
 	def _add_to_internal_dict(self, element, parent, num_row):
 		QueueModel._add_to_internal_dict(self, element, parent, num_row)
-		progressbar = QProgressBar()
-		progressbar.setValue(0)
-		self.progress_bars[element] = progressbar
 		if element.tag == "item":
+			progressbar = QProgressBar()
+			progressbar.setValue(0)
+			self.progress_bars[element] = progressbar
 			selected_extension = element.get("selected")
 			if selected_extension is None:
 				element.attrib["status"] = "Error: No Extension selected"
@@ -38,48 +37,39 @@ class DownloadModel(QueueModel):
 			option = element.find("format[@extension='%s']/option[@quality='%s']" % (selected_extension, selected_quality))
 			self.option_elements[element] = option
 
-	def flags(self, index):
-		flags = QueueModel.flags(self, index)
-		if index.column() == 0:
-			flags = flags | Qt.ItemIsEditable
-		return flags
-
 	def data(self, index, role):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
+			# handle extension, quality and progress differently here
 			element = index.internalPointer()
 			num_col = index.column()
 			if element.tag == 'item':
-				if num_col == 0:
-					return element.attrib["title"]
-				elif num_col == 1:
-					return element.attrib.get("host")
-				elif num_col == 2:
-					return element.attrib.get("status")
-				elif num_col == 3:
-					path = element.attrib.get("path")
-					size = element.attrib.get("size")
-					if path is None or size is None or not os.path.exists(path):
-						return 0
-					realsize = os.path.getsize(path)
-					return realsize / size * 100  # percentage
-				elif num_col == 4:
-					return element.attrib.get("path")
-			elif element.tag == 'package':
-				if num_col == 0:
-					return element.attrib["name"]
+				if num_col == 8:
+					return element.attrib.get("selected")
+				elif num_col == 9:
+					# data() is called VERY often, even when the column ain't visible -> avoid xpath queries here
+					option = self.option_elements[element]
+					return option.attrib.get("quality")
+				elif num_col == 10:
+					#path = element.attrib.get("path")
+					#size = element.attrib.get("size")
+					#if path is None or size is None or not os.path.exists(path):
+					#	return 0
+					#realsize = os.path.getsize(path)
+					#return realsize / size * 100  # percentage
+					return 0
+			return QueueModel.data(self, index, role)
 
-	def setData(self, index, value, role):
-		if role != Qt.EditRole or value == "":
-			return QueueModel.setData(self, index, value, role)
-		element = index.internalPointer()
-		num_col = index.column()
-		if element.tag == 'item':
-			if num_col == 0:
-				pass
-		self.dataChanged.emit(index, index)
-		return True
+	def start(self):
+		for item in self._root.findall("item[@status='Queued']"):
+			item.attrib["status"] = "Progressing"  # TODO: self.dataChanged.emit(index, index)
+			option = self.option_elements[item]
+			self.pool.apply_async(func=download, args=(item.get("url"), item.get("path"), item.get("filename"),
+						option.get("download_url"), option.get("download_url")))
+
+	def pause(self):
+		pass
 
 	def updateProgress(self):
-		if self.queue.empty():
+		if self.resultqueue.empty():
 			return
 		pass

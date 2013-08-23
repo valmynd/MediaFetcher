@@ -186,13 +186,70 @@ class ElementTreeModel(QAbstractItemModel):
 
 
 class QueueModel(ElementTreeModel):
+	_columns = ['Title', 'Url', 'Host', 'Description', 'Thumbnail', 'Path', 'Filename',
+					'Status', 'Extension', 'Quality', 'Progress']
+
 	def __init__(self, path_to_xml_file):
 		"""other than ElementTreeModel(), QueueModel() does take a path to an XML file as a parameter"""
 		root_element = etree.parse(path_to_xml_file).getroot()
 		ElementTreeModel.__init__(self, root_element)
 
 	def flags(self, index):
+		if index.column() in (0, 5, 6):
+			return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsEditable
 		return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+
+	def data(self, index, role):
+		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
+			# columns 3, 4 are handled via ComboBoxDelegate
+			element = index.internalPointer()
+			num_col = index.column()
+			if element.tag == 'item':
+				if num_col == 0:
+					return element.attrib["title"]
+				elif num_col == 1:
+					return element.attrib["url"]
+				elif num_col == 2:
+					return element.attrib.get("host")
+				elif num_col == 3:
+					return element.attrib.get("description")
+				elif num_col == 4:
+					# TODO: fetch on disk when requested
+					return element.attrib.get("thumbnail")
+				elif num_col == 5:
+					return element.attrib.get("path")
+				elif num_col == 6:
+					return element.attrib.get("filename")
+				elif num_col == 7:
+					return element.attrib.get("status")
+			elif element.tag == 'package':
+				if num_col == 0:
+					return element.attrib["name"]
+			elif element.tag == 'task':
+				if num_col == 0:
+					return element.attrib["url"]
+				elif num_col == 2:
+					return element.attrib.get("status")
+
+	def setData(self, index, value, role):
+		if role != Qt.EditRole:
+			return QueueModel.setData(self, index, value, role)
+		element = index.internalPointer()
+		num_col = index.column()
+		if element.tag == 'item':
+			if num_col == 0:
+				element.attrib["title"] = value
+			elif num_col == 3:
+				element.attrib["description"] = value
+			elif num_col == 5:
+				element.attrib["path"] = value
+			elif num_col == 6:
+				element.attrib["filename"] = value
+		elif element.tag == 'package':
+			if num_col == 0:
+				element.attrib["name"] = value
+		self.dataChanged.emit(index, index)
+		return True
 
 	def rowCount(self, parent):
 		# Only "package" nodes should have children in the view!

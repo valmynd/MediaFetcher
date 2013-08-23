@@ -11,10 +11,10 @@ class ComboBoxDelegate(QStyledItemDelegate):
 	def createEditor(self, parent_widget, option, index):
 		num_col = index.column()
 		element = index.internalPointer()
-		if num_col == 3:
+		if num_col == 8:
 			combo = self._model.combo_boxes_format[element]
 			combo.currentIndexChanged.connect(lambda y: self._format_changed(element))
-		elif num_col == 4:
+		elif num_col == 9:
 			combo = self._model.combo_boxes_quality[element]
 			combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
 		combo.setMaximumHeight(self.sizeHint(option, index).height())  # workaround for (qt?) bug when editing labels
@@ -48,7 +48,8 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 
 class ClipBoardView(QueueTreeView):
-	_ignored_columns = ['Description']
+	_ignored_columns = ['Url', 'Thumbnail', 'Description', 'Progress']
+	_hidden_columns = ['Path', 'Filename']
 
 	def __init__(self, download_view):
 		#from xml.etree import ElementTree as etree
@@ -56,8 +57,8 @@ class ClipBoardView(QueueTreeView):
 		#clipboard_model = QueueModel("models/clipboard_example.xml")
 		clipboard_model = ClipBoardModel("models/clipboard_example.xml")
 		QueueTreeView.__init__(self, clipboard_model)
-		self.setItemDelegateForColumn(3, ComboBoxDelegate(self, clipboard_model))
-		self.setItemDelegateForColumn(4, ComboBoxDelegate(self, clipboard_model))
+		self.setItemDelegateForColumn(8, ComboBoxDelegate(self, clipboard_model))
+		self.setItemDelegateForColumn(9, ComboBoxDelegate(self, clipboard_model))
 		self.download_view = download_view
 
 		self.downloadSelectedAction = QAction('Download Selected', self, triggered=self.downloadSelected)
@@ -80,6 +81,8 @@ class ClipBoardView(QueueTreeView):
 
 	def downloadAll(self):
 		for element in list(self.model()._root):
+			if element.attrib.get("status") == "Available":
+				element.attrib["status"] = "Queued"
 			self.download_view.addClipboardElement(element)
 		self.removeAll()
 
@@ -88,6 +91,8 @@ class ClipBoardView(QueueTreeView):
 		elements = [index.internalPointer() for index in self.selectionModel().selectedRows()]
 		self.removeSelected()  # this will detach otherwise problematic parent->child relationships
 		for element in elements:  # the element objects were not garbage-collected, as they're still in that list
+			if element.attrib.get("status") == "Available":
+				element.attrib["status"] = "Queued"
 			self.download_view.addClipboardElement(element)
 
 	def addURL(self, url):

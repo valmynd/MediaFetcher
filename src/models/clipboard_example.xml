@@ -4,64 +4,64 @@
         <subtitle language="English"/>
         <subtitle language="Danish"/>
         <format extension="mp4">
-            <option quality="320*280" location="" url="url" player_url=""/>
-            <option quality="720*480" location="" url="url" player_url=""/>
+            <option quality="320*280" download_url="url" player_url=""/>
+            <option quality="720*480" download_url="url" player_url=""/>
         </format>
     </item>
     <item title="Item 2" selected="webm" status="Available" url="somewhere">
         <subtitle language="English"/>
         <subtitle language="German"/>
         <format extension="mp4" selected="120*180">
-            <option quality="320*280" location="" url="url" player_url=""/>
-            <option quality="120*180" location="" url="url" player_url=""/>
-            <option quality="720*480" location="" url="url" player_url=""/>
+            <option quality="320*280" download_url="url" player_url=""/>
+            <option quality="120*180" download_url="url" player_url=""/>
+            <option quality="720*480" download_url="url" player_url=""/>
         </format>
         <format extension="webm" selected="120*180">
-            <option quality="120*180" location="" url="url" player_url=""/>
-            <option quality="1080*480" location="" url="url" player_url=""/>
+            <option quality="120*180" download_url="url" player_url=""/>
+            <option quality="1080*480" download_url="url" player_url=""/>
         </format>
     </item>
-    <package name="Youtube Playlist" url="somewhere">
+    <package name="Youtube Playlist">
         <item title="Item 3.1" status="Available" url="somewhere">
             <subtitle language="String"/>
             <subtitle language="String"/>
             <format extension="String">
-                <option quality="320*280" location="" url="url" player_url=""/>
+                <option quality="320*280" download_url="url" player_url=""/>
             </format>
             <format extension="String">
-                <option quality="720*480" location="" url="url" player_url=""/>
+                <option quality="720*480" download_url="url" player_url=""/>
             </format>
         </item>
         <item title="Item 3.2" status="Available" url="somewhere">
             <subtitle language="String"/>
             <subtitle language="String"/>
             <format extension="String">
-                <option quality="320*280" location="" url="url" player_url=""/>
+                <option quality="320*280" download_url="url" player_url=""/>
             </format>
             <format extension="String">
-                <option quality="720*480" location="" url="url" player_url=""/>
+                <option quality="720*480" download_url="url" player_url=""/>
             </format>
         </item>
     </package>
-    <package name="Package 2" url="somewhere">
+    <package name="Package 2">
         <item title="Item 4.1" status="Available" url="somewhere">
             <subtitle language="String"/>
             <subtitle language="String"/>
-            <format extension="String">
-                <option quality="320*280" location="" url="url" player_url=""/>
+            <format extension="String" selected="320*280">
+                <option quality="320*280" download_url="url" player_url=""/>
             </format>
-            <format extension="String">
-                <option quality="720*480" location="" url="url" player_url=""/>
+            <format extension="String" selected="720*480">
+                <option quality="720*480" download_url="url" player_url=""/>
             </format>
         </item>
         <item title="Item 4.2" status="Available" url="somewhere">
             <subtitle language="String"/>
             <subtitle language="String"/>
-            <format extension="String">
-                <option quality="320*280" location="" url="url" player_url=""/>
+            <format extension="String" selected="320*280">
+                <option quality="320*280" download_url="url" player_url=""/>
             </format>
-            <format extension="String">
-                <option quality="720*480" location="" url="url" player_url=""/>
+            <format extension="String" selected="720*480">
+                <option quality="720*480" download_url="url" player_url=""/>
             </format>
         </item>
     </package>

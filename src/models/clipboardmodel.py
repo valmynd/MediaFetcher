@@ -11,8 +11,6 @@ if not os.path.exists(thumbnail_path):
 
 
 class ClipBoardModel(QueueModel):
-	_columns = ['Title', 'Host', 'Status', 'Format', 'Quality', 'Description']
-
 	def __init__(self, path_to_xml_file):
 		QueueModel.__init__(self, path_to_xml_file)
 
@@ -32,10 +30,16 @@ class ClipBoardModel(QueueModel):
 			format_combobox = QComboBox()   # see ComboBoxDelegate.createEditor()
 			quality_combobox = QComboBox()  # see ComboBoxDelegate.createEditor()
 			# get selected extension -> fallback: take the first which got parsed from XML
-			selected_extension = element.get("selected", element.find("format").attrib["extension"])
+			selected_extension = element.get("selected")
+			if selected_extension is None:
+				element.attrib["selected"] = element.find("format").attrib["extension"]
+				selected_extension = element.attrib["selected"]
 			# get selected quality; TODO: make default-fallback configurable
 			selected_format = element.find("format[@extension='%s']" % selected_extension)
-			selected_quality = selected_format.get("selected", selected_format.find("option").attrib["quality"])
+			selected_quality = selected_format.get("selected")
+			if selected_quality is None:
+				selected_format.attrib["selected"] = selected_format.find("option").attrib["quality"]
+				selected_quality = selected_format.attrib["selected"]
 			# initialize combobox widgets
 			for format in element.findall("format"):
 				format_combobox.addItem(format.get("extension"))
@@ -45,54 +49,6 @@ class ClipBoardModel(QueueModel):
 			quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
 			self.combo_boxes_format[element] = format_combobox
 			self.combo_boxes_quality[element] = quality_combobox
-
-	def flags(self, index):
-		flags = QueueModel.flags(self, index)
-		if index.column() == 0:
-			flags = flags | Qt.ItemIsEditable
-		return flags
-
-	def data(self, index, role):
-		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
-			# columns 3, 4 are handled via ComboBoxDelegate
-			element = index.internalPointer()
-			num_col = index.column()
-			if element.tag == 'item':
-				if num_col == 0:
-					return element.attrib["title"]
-				elif num_col == 1:
-					return element.attrib.get("host")
-				elif num_col == 2:
-					return element.attrib.get("status")
-				elif num_col == 5:
-					return element.attrib.get("description")
-			elif element.tag == 'package':
-				if num_col == 0:
-					return element.attrib["name"]
-			elif element.tag == 'task':
-				if num_col == 0:
-					return element.attrib["url"]
-				elif num_col == 2:
-					return element.attrib.get("status")
-
-	def setData(self, index, value, role):
-		if role != Qt.EditRole:
-			return QueueModel.setData(self, index, value, role)
-		element = index.internalPointer()
-		num_col = index.column()
-		if element.tag == 'item':
-			if num_col == 0:
-				element.attrib["title"] = value
-			elif num_col == 5:
-				element.attrib["description"] = value
-		elif element.tag == 'package':
-			if num_col == 0:
-				element.attrib["name"] = value
-		elif element.tag == 'task':
-			if num_col == 2:
-				element.attrib["status"] = value
-		self.dataChanged.emit(index, index)
-		return True
 
 	def addURL(self, url):
 		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """
