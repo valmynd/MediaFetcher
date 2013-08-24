@@ -4,12 +4,13 @@ ___license___ = "GPL v3"
 
 from PySide.QtCore import *
 from PySide.QtGui import *
-from views import ClipBoardView, DownloadView
+from views import ClipBoardView, DownloadView, SettingsDialog
 
 
 class MainWindow(QMainWindow):
 	def __init__(self):
 		QMainWindow.__init__(self)
+		self._loadSettings()
 		self._initActions()
 		self._initMenus()
 		self._initToolBars()
@@ -30,12 +31,20 @@ class MainWindow(QMainWindow):
 		self.timer.timeout.connect(self.updateProgress)
 		self.timer.start(2000)
 
+	def _loadSettings(self):
+		self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "MediaFetcher", "MediaFetcher")
+		self.settingsPath = QFileInfo(self.settings.fileName()).absolutePath()
+		self.settingsDialog = SettingsDialog(self, self.settings)
+
+	def showSettings(self):
+		self.settingsDialog.open()
+
 	def _initActions(self):
 		self.openAction = QAction("&Open Container File", self, shortcut=QKeySequence.Open, triggered=self.open)
 		self.startAction = QAction("&Start Downloads", self, triggered=self.togglePause)
 		self.pauseAction = QAction("&Pause Downloads", self, triggered=self.togglePause)
 		self.statusBarAction = QAction("Statusbar", self, checkable=True, checked=True, triggered=self.toggleStatusBar)
-		self.settingsAction = QAction("Prefere&nces", self, triggered=self.dummy)
+		self.settingsAction = QAction("Prefere&nces", self, triggered=self.showSettings)
 		self.aboutAction = QAction("About", self, triggered=self.about)
 		self.searchAction = QAction("Search", self, triggered=self.search)
 
@@ -83,15 +92,9 @@ class MainWindow(QMainWindow):
 		self.toolBar.addAction(self.openAction)
 		self.toolBar.addWidget(self.searchBar)
 		self.toolBar.addAction(self.searchAction)
-		#self.toolBar.addAction(self.startAction)
-		#self.toolBar.addAction(self.pauseAction)
 		self.toolBar.addWidget(self.startButton)
 		self.toolBar.addAction(self.settingsAction)
 		self.toolBar.setMovable(False)
-
-	#self.searchAction.setDisabled(True)
-	#self.startAction.setEnabled(True)
-	#self.pauseAction.setEnabled(False)
 
 	def _initTrayIcon(self):
 		self.trayIconMenu = QMenu(self)
@@ -111,11 +114,11 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabBar)
 
 		# Downloads Tab
-		self.download_view = DownloadView()
+		self.download_view = DownloadView(self.settings)
 		self.tabBar.addTab(self.download_view, "Downloads")
 
 		# Clipboard Tab
-		self.clipboard_view = ClipBoardView(self.download_view)
+		self.clipboard_view = ClipBoardView(self.settings, self.download_view)
 		self.tabBar.addTab(self.clipboard_view, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
@@ -136,7 +139,7 @@ class MainWindow(QMainWindow):
 		pass
 
 	def open(self):
-		fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.currentPath())
+		fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.homePath())
 		if fileName:
 			pass
 

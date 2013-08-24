@@ -23,12 +23,11 @@ class ProgressBarDelegate(QStyledItemDelegate):
 
 class DownloadView(QueueTreeView):
 	_ignored_columns = ['Url', 'Thumbnail', 'Description']
-	_hidden_columns = ['Path', 'Filename', 'Extension', 'Quality']
+	_visible_columns = ['Filename', 'Host', 'Status', 'Progress']  # excluded: ['Title', 'Path', 'Extension', 'Quality']
 
-	def __init__(self):
-		download_model = DownloadModel("models/clipboard_example.xml")
-		QueueTreeView.__init__(self, download_model)
-		self.setItemDelegateForColumn(10, ProgressBarDelegate(self, download_model))
+	def __init__(self, settings):
+		QueueTreeView.__init__(self, settings, DownloadModel(settings))
+		self.setItemDelegateForColumn(10, ProgressBarDelegate(self, self.model()))
 
 		self.pauseSelectedAction = QAction('Pause Selected', self, triggered=self.pauseSelected)
 		self.resumeSelectedAction = QAction('Resume Selected', self, triggered=self.resumeSelected)

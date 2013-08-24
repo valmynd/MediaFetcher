@@ -1,2 +1,3 @@
-from models.clipboardmodel import *
-#from models.download import
+from models.clipboardmodel import ClipBoardModel
+from models.downloadmodel import DownloadModel
+from models.settingsmodel import SettingsModel

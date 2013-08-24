@@ -1,62 +1,22 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
-
-
-class InfoBoxDialog(QDialog):
-	def __init__(self, parent_widget, model):
-		QDialog.__init__(self, parent_widget)
-		self.setWindowTitle("Clipboard Item Description")
-		title_field = QLineEdit()
-		description_field = QPlainTextEdit()
-		#description_field.setReadOnly(True) # wouldn't make sense to edit this (?)
-		thumbnail_field = QLabel()
-		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-		buttonbox.accepted.connect(self.submit)
-		buttonbox.rejected.connect(self.close)
-		layout = QFormLayout()
-		layout.addRow(QLabel("Title:"), title_field)
-		layout.addRow(QLabel("Description:"), description_field)
-		layout.addRow(QLabel("Thumbnail:"), thumbnail_field)
-		layout.addRow(buttonbox)
-		self.mapper = QDataWidgetMapper(self)
-		self.mapper.setModel(model)
-		self.mapper.addMapping(title_field, 0)
-		self.mapper.addMapping(description_field, 5)
-		self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
-		self.setLayout(layout)
-
-	def open_for_selection(self, selected_index):
-		self.mapper.setCurrentModelIndex(selected_index)
-		self.exec_()
-
-	def submit(self):
-		self.mapper.submit()
-		self.close()
+from views.infoview import InfoBoxDialog
+import json
 
 
 class QueueTreeView(QTreeView):
 	_ignored_columns = []  # columns that would break the table layout, e.g. multiline descriptions, thumbnails
-	_hidden_columns = []  # columns that were deselected by the user or by default TODO: read/store config
+	_visible_columns = []  # columns that weren't deselected by the user or by default NOTE: order is relevant!
 
-	def __init__(self, model):
+	def __init__(self, qsettings_object, model):
 		QTreeView.__init__(self)
 		self.setModel(model)
+		self.settings = qsettings_object
 
 		# Configure Header
 		self.header().setContextMenuPolicy(Qt.CustomContextMenu)
 		self.header().customContextMenuRequested.connect(self.chooseColumns)
-		self.columnMenu = QMenu()
-		for i, column_title in enumerate(model._columns):
-			if column_title in self._ignored_columns:
-				self.setColumnHidden(i, True)
-				continue
-			qa = QAction(column_title, self, checkable=True, triggered=self.toggleColumn)
-			if column_title in self._hidden_columns:
-				self.setColumnHidden(i, True)
-				qa.setChecked(False)
-			else:
-				qa.setChecked(True)
-			self.columnMenu.addAction(qa)
+		self.loadColumnSettings()
 
 		# Setup Context Menu
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -64,24 +24,44 @@ class QueueTreeView(QTreeView):
 		self.infobox = InfoBoxDialog(self, self.model())
 
 		# Other basic configuration
-		#self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
+		self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
 		self.header().setMaximumHeight(21)
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
 		self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 		self.setDragDropMode(QAbstractItemView.DragDrop)
 		self.setDropIndicatorShown(True)
 
-	def showContextMenu(self, pos):
-		raise NotImplementedError()
+	def loadColumnSettings(self):
+		self.settings.beginGroup(self.__class__.__name__)
+		visible_columns = self.settings.value("VisibleColumns", self._visible_columns)
+		if not isinstance(visible_columns, list):
+			visible_columns = json.loads(visible_columns)
+		self.initColumns(visible_columns)
+		self.settings.endGroup()
 
-	def showInfo(self):
-		self.infobox.open_for_selection(self.selectedIndexes()[0])
+	def initColumns(self, visible_columns=[]):
+		self.columnMenu = QMenu()
+		for i, column_title in enumerate(self.model()._columns):
+			if column_title in self._ignored_columns:
+				self.setColumnHidden(i, True)
+				continue
+			qa = QAction(column_title, self, checkable=True, triggered=self.toggleColumn)
+			if column_title in visible_columns:
+				self.setColumnHidden(i, False)
+				qa.setChecked(True)
+			else:
+				self.setColumnHidden(i, True)
+				qa.setChecked(False)
+			self.columnMenu.addAction(qa)
+		self.columnMenu.addSeparator()
+		self.columnMenu.addAction(QAction("Reset Defaults", self, triggered=self.resetColumnDefaults))
+		for i, column_title in enumerate(visible_columns):
+			j = self.model()._columns.index(column_title)
+			j = self.header().logicalIndex(j)
+			self.header().swapSections(j, i)
 
-	def removeSelected(self):
-		self.model().removeScatteredRows(self.selectionModel().selectedRows())
-
-	def removeAll(self):
-		self.model().removeAll()
+	def resetColumnDefaults(self):
+		self.initColumns(self._visible_columns)
 
 	def toggleColumn(self, column_title=None):
 		if column_title is None:
@@ -92,3 +72,15 @@ class QueueTreeView(QTreeView):
 	def chooseColumns(self, pos):
 		globalPos = self.mapToGlobal(pos)
 		self.columnMenu.exec_(globalPos)
+
+	def showInfo(self):
+		self.infobox.open_for_selection(self.selectedIndexes()[0])
+
+	def removeSelected(self):
+		self.model().removeScatteredRows(self.selectionModel().selectedRows())
+
+	def removeAll(self):
+		self.model().removeAll()
+
+	def showContextMenu(self, pos):
+		raise NotImplementedError

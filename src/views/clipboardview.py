@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from views.viewbase import *
 from models import ClipBoardModel
 
@@ -17,6 +16,8 @@ class ComboBoxDelegate(QStyledItemDelegate):
 		elif num_col == 9:
 			combo = self._model.combo_boxes_quality[element]
 			combo.currentIndexChanged.connect(lambda y: self._quality_changed(element))
+		else:
+			raise Exception("Only Columns 8, 9 are handled by ComboBoxDelegate")
 		combo.setMaximumHeight(self.sizeHint(option, index).height())  # workaround for (qt?) bug when editing labels
 		combo.setParent(parent_widget)
 		return combo
@@ -49,16 +50,12 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 class ClipBoardView(QueueTreeView):
 	_ignored_columns = ['Url', 'Thumbnail', 'Description', 'Progress']
-	_hidden_columns = ['Path', 'Filename']
+	_visible_columns = ['Title', 'Host', 'Status', 'Extension', 'Quality']  # excluded: ['Path', 'Filename']
 
-	def __init__(self, download_view):
-		#from xml.etree import ElementTree as etree
-		#clipboard_model = ElementTreeModel(etree.parse("models/clipboard_example.xml").getroot())
-		#clipboard_model = QueueModel("models/clipboard_example.xml")
-		clipboard_model = ClipBoardModel("models/clipboard_example.xml")
-		QueueTreeView.__init__(self, clipboard_model)
-		self.setItemDelegateForColumn(8, ComboBoxDelegate(self, clipboard_model))
-		self.setItemDelegateForColumn(9, ComboBoxDelegate(self, clipboard_model))
+	def __init__(self, settings, download_view):
+		QueueTreeView.__init__(self, settings, ClipBoardModel(settings))
+		self.setItemDelegateForColumn(8, ComboBoxDelegate(self, self.model()))
+		self.setItemDelegateForColumn(9, ComboBoxDelegate(self, self.model()))
 		self.download_view = download_view
 
 		self.downloadSelectedAction = QAction('Download Selected', self, triggered=self.downloadSelected)

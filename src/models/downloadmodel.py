@@ -6,8 +6,8 @@ import os
 
 
 class DownloadModel(QueueModel):
-	def __init__(self, path_to_xml_file):
-		QueueModel.__init__(self, path_to_xml_file)
+	def __init__(self, qsettings_object):
+		QueueModel.__init__(self, qsettings_object, "downloads.xml")
 
 		self.commandqueue = Queue()  # contains commands such as "abort", "requeue"
 		self.resultqueue = Queue()   # contains result tuples as such: (url, status, size_written, remote_size)

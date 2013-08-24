@@ -11,8 +11,8 @@ if not os.path.exists(thumbnail_path):
 
 
 class ClipBoardModel(QueueModel):
-	def __init__(self, path_to_xml_file):
-		QueueModel.__init__(self, path_to_xml_file)
+	def __init__(self, qsettings_object):
+		QueueModel.__init__(self, qsettings_object, "clipboard.xml")
 
 		self.queue = Queue()
 		self.pool = Pool(processes=2, initializer=pool_init, initargs=(self.queue,))

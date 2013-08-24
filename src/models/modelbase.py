@@ -1,6 +1,6 @@
 from PySide.QtCore import *
 from xml.etree import ElementTree as etree
-
+import os
 
 class ElementTreeModel(QAbstractItemModel):
 	"""
@@ -53,6 +53,8 @@ class ElementTreeModel(QAbstractItemModel):
 		try:
 			return self.createIndex(row, column, parent_element[row])
 		except IndexError:
+			if len(self._root) == 0:
+				return QModelIndex()
 			if hasattr(self, "_remove_rows_active") and self._remove_rows_active:
 				# beginRemoveRows() will ask for the row next row, even if it is the last!
 				if row == len(parent_element):
@@ -189,19 +191,20 @@ class QueueModel(ElementTreeModel):
 	_columns = ['Title', 'Url', 'Host', 'Description', 'Thumbnail', 'Path', 'Filename',
 					'Status', 'Extension', 'Quality', 'Progress']
 
-	def __init__(self, path_to_xml_file):
-		"""other than ElementTreeModel(), QueueModel() does take a path to an XML file as a parameter"""
-		root_element = etree.parse(path_to_xml_file).getroot()
-		ElementTreeModel.__init__(self, root_element)
+	def __init__(self, qsettings_object, name_of_xml_file="queue.xml"):
+		self.settings = qsettings_object
+		settings_path = QFileInfo(qsettings_object.fileName()).absolutePath()
+		path_to_xml_file = os.path.join(settings_path, name_of_xml_file)
+		root = etree.parse(path_to_xml_file).getroot() if os.path.exists(path_to_xml_file) else etree.Element("queue")
+		ElementTreeModel.__init__(self, root)
 
 	def flags(self, index):
-		if index.column() in (0, 5, 6):
+		if index.column() in (5, 6):
 			return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsEditable
 		return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
 	def data(self, index, role):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
-			# columns 3, 4 are handled via ComboBoxDelegate
 			element = index.internalPointer()
 			num_col = index.column()
 			if element.tag == 'item':
