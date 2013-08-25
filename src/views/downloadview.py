@@ -25,8 +25,8 @@ class DownloadView(QueueTreeView):
 	_ignored_columns = ['Url', 'Thumbnail', 'Description']
 	_visible_columns = ['Filename', 'Host', 'Status', 'Progress']  # excluded: ['Title', 'Path', 'Extension', 'Quality']
 
-	def __init__(self, settings):
-		QueueTreeView.__init__(self, settings, DownloadModel(settings))
+	def __init__(self, main_window, settings):
+		QueueTreeView.__init__(self, main_window, settings, DownloadModel(main_window, settings))
 		self.setItemDelegateForColumn(10, ProgressBarDelegate(self, self.model()))
 
 		self.pauseSelectedAction = QAction('Pause Selected', self, triggered=self.pauseSelected)

@@ -2,6 +2,7 @@ from PySide.QtCore import *
 from xml.etree import ElementTree as etree
 import os
 
+
 class ElementTreeModel(QAbstractItemModel):
 	"""
 	Model for ElementTree Data Structures
@@ -191,12 +192,16 @@ class QueueModel(ElementTreeModel):
 	_columns = ['Title', 'Url', 'Host', 'Description', 'Thumbnail', 'Path', 'Filename',
 					'Status', 'Extension', 'Quality', 'Progress']
 
-	def __init__(self, qsettings_object, name_of_xml_file="queue.xml"):
+	def __init__(self, main_window, qsettings_object, name_of_xml_file="queue.xml"):
 		self.settings = qsettings_object
-		settings_path = QFileInfo(qsettings_object.fileName()).absolutePath()
-		path_to_xml_file = os.path.join(settings_path, name_of_xml_file)
-		root = etree.parse(path_to_xml_file).getroot() if os.path.exists(path_to_xml_file) else etree.Element("queue")
+		self.pathToXMLFile = os.path.join(QFileInfo(qsettings_object.fileName()).absolutePath(), name_of_xml_file)
+		root = etree.parse(self.pathToXMLFile).getroot() if os.path.exists(self.pathToXMLFile) else etree.Element("queue")
 		ElementTreeModel.__init__(self, root)
+		main_window.closed.connect(self.writeXML)
+
+	def writeXML(self):
+		with open(self.pathToXMLFile,'w') as file:
+			file.write(etree.tostring(self._root, encoding="unicode"))
 
 	def flags(self, index):
 		if index.column() in (5, 6):

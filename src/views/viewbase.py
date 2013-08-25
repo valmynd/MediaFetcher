@@ -8,15 +8,16 @@ class QueueTreeView(QTreeView):
 	_ignored_columns = []  # columns that would break the table layout, e.g. multiline descriptions, thumbnails
 	_visible_columns = []  # columns that weren't deselected by the user or by default NOTE: order is relevant!
 
-	def __init__(self, qsettings_object, model):
-		QTreeView.__init__(self)
+	def __init__(self, main_window, qsettings_object, model):
+		QTreeView.__init__(self, main_window)
 		self.setModel(model)
 		self.settings = qsettings_object
 
 		# Configure Header
 		self.header().setContextMenuPolicy(Qt.CustomContextMenu)
 		self.header().customContextMenuRequested.connect(self.chooseColumns)
-		self.loadColumnSettings()
+		self.loadSettings()
+		main_window.closed.connect(self.writeSettings)
 
 		# Setup Context Menu
 		self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -31,12 +32,23 @@ class QueueTreeView(QTreeView):
 		self.setDragDropMode(QAbstractItemView.DragDrop)
 		self.setDropIndicatorShown(True)
 
-	def loadColumnSettings(self):
+	def loadSettings(self):
 		self.settings.beginGroup(self.__class__.__name__)
 		visible_columns = self.settings.value("VisibleColumns", self._visible_columns)
 		if not isinstance(visible_columns, list):
 			visible_columns = json.loads(visible_columns)
 		self.initColumns(visible_columns)
+		self.settings.endGroup()
+
+	def writeSettings(self):
+		self.settings.beginGroup(self.__class__.__name__)
+		visible_columns = [None] * len(self.model()._columns)  # intialize to avoid Index Errors
+		for i, column_title in enumerate(self.model()._columns):
+			if not self.isColumnHidden(i):
+				j = self.header().visualIndex(i)
+				visible_columns[j] = column_title
+		visible_columns = list(filter(None, visible_columns))  # remove None Values
+		self.settings.setValue("VisibleColumns", json.dumps(visible_columns))
 		self.settings.endGroup()
 
 	def initColumns(self, visible_columns=[]):

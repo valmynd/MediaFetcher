@@ -8,14 +8,17 @@ from views import ClipBoardView, DownloadView, SettingsDialog
 
 
 class MainWindow(QMainWindow):
+	closed = Signal()
+
 	def __init__(self):
 		QMainWindow.__init__(self)
-		self._loadSettings()
-		self._initActions()
-		self._initMenus()
-		self._initToolBars()
-		self._initTrayIcon()
-		self._initTabs()
+		self.loadSettings()
+		self.initActions()
+		self.initMenus()
+		self.initToolBars()
+		self.initTrayIcon()
+		self.initTabs()
+		self.closed.connect(self.writeSettings)
 		self.setWindowTitle("Media Fetcher")
 		self.setWindowIcon(QIcon("../img/icon.png"))
 		self.resize(600, 400)
@@ -31,7 +34,14 @@ class MainWindow(QMainWindow):
 		self.timer.timeout.connect(self.updateProgress)
 		self.timer.start(2000)
 
-	def _loadSettings(self):
+	def closeEvent(self, event):
+		# http://qt-project.org/doc/qt-5.0/qtwidgets/qwidget.html#closeEvent
+		self.closed.emit()
+
+	def writeSettings(self):
+		pass
+
+	def loadSettings(self):
 		self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "MediaFetcher", "MediaFetcher")
 		self.settingsPath = QFileInfo(self.settings.fileName()).absolutePath()
 		self.settingsDialog = SettingsDialog(self, self.settings)
@@ -39,7 +49,7 @@ class MainWindow(QMainWindow):
 	def showSettings(self):
 		self.settingsDialog.open()
 
-	def _initActions(self):
+	def initActions(self):
 		self.openAction = QAction("&Open Container File", self, shortcut=QKeySequence.Open, triggered=self.open)
 		self.startAction = QAction("&Start Downloads", self, triggered=self.togglePause)
 		self.pauseAction = QAction("&Pause Downloads", self, triggered=self.togglePause)
@@ -60,7 +70,7 @@ class MainWindow(QMainWindow):
 		self.quitAction.setIcon(QIcon.fromTheme("application-exit"))
 		self.searchAction.setIcon(QIcon.fromTheme("system-search"))
 
-	def _initMenus(self):
+	def initMenus(self):
 		self.fileMenu = QMenu("&File", self)
 		self.fileMenu.addAction(self.openAction)
 		self.fileMenu.addSeparator()
@@ -83,7 +93,7 @@ class MainWindow(QMainWindow):
 		self.menuBar().addMenu(self.viewMenu)
 		self.menuBar().addMenu(self.helpMenu)
 
-	def _initToolBars(self):
+	def initToolBars(self):
 		# http://aseigo.blogspot.de/2006/08/sweep-sweep-sweep-ui-floor.html
 		self.searchBar = QLineEdit()
 		self.startButton = QToolButton(self)
@@ -96,7 +106,7 @@ class MainWindow(QMainWindow):
 		self.toolBar.addAction(self.settingsAction)
 		self.toolBar.setMovable(False)
 
-	def _initTrayIcon(self):
+	def initTrayIcon(self):
 		self.trayIconMenu = QMenu(self)
 		self.trayIconMenu.addAction(self.minimizeAction)
 		self.trayIconMenu.addAction(self.maximizeAction)
@@ -109,16 +119,16 @@ class MainWindow(QMainWindow):
 		self.trayIcon.setContextMenu(self.trayIconMenu)
 		self.trayIcon.activated.connect(self.trayActivated)
 
-	def _initTabs(self):
+	def initTabs(self):
 		self.tabBar = QTabWidget()
 		self.setCentralWidget(self.tabBar)
 
 		# Downloads Tab
-		self.download_view = DownloadView(self.settings)
+		self.download_view = DownloadView(self, self.settings)
 		self.tabBar.addTab(self.download_view, "Downloads")
 
 		# Clipboard Tab
-		self.clipboard_view = ClipBoardView(self.settings, self.download_view)
+		self.clipboard_view = ClipBoardView(self, self.settings, self.download_view)
 		self.tabBar.addTab(self.clipboard_view, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 

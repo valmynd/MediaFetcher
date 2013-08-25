@@ -52,8 +52,8 @@ class ClipBoardView(QueueTreeView):
 	_ignored_columns = ['Url', 'Thumbnail', 'Description', 'Progress']
 	_visible_columns = ['Title', 'Host', 'Status', 'Extension', 'Quality']  # excluded: ['Path', 'Filename']
 
-	def __init__(self, settings, download_view):
-		QueueTreeView.__init__(self, settings, ClipBoardModel(settings))
+	def __init__(self, main_window, settings, download_view):
+		QueueTreeView.__init__(self, main_window, settings, ClipBoardModel(main_window, settings))
 		self.setItemDelegateForColumn(8, ComboBoxDelegate(self, self.model()))
 		self.setItemDelegateForColumn(9, ComboBoxDelegate(self, self.model()))
 		self.download_view = download_view
