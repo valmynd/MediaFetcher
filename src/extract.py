@@ -11,17 +11,17 @@ def extract_url_using_youtubedl(url):
 	As every such function, it returns either an <item> or <package> xml fragment
 
 	The following are common fields for a title:
-	title:          Video title, unescaped.
+	title:          Title defined by the Uploader
 	host:           is set to the value for 'extractor'
 	thumbnail:      Full URL to a video thumbnail image.
-	description:    One-line video description.
-	subtitles:      The subtitle file contents.
+	description:    Description defined by the Uploader
+	subtitles:      The subtitle file contents (not handled yet)
 
 	The following fields are specific to a certain Format- and Quality Variant
-	url:            Final video URL.
-	location:       Physical location of the video. (???)
-	player_url:     SWF Player URL (used for rtmpdump).
-	ext:            Video filename extension.
+	url:            Final video URL -> becomes 'download_url'
+	location:       Only once used by youtube-dl in rbmaradio.py for country of origin -> ignored!
+	player_url:     SWF Player URL -> in some cases needed for rtmpdump
+	ext:            Video filename extension -> becomes 'extension'
 	format:         The video format -> optional, becomes 'quality'
 	"""
 	ydl = extract_url_using_youtubedl.ydl  # see pool_init()
@@ -40,7 +40,7 @@ def extract_url_using_youtubedl(url):
 			extension = entry['ext']
 			quality = re.sub(r'^[0-9]+\s-\s', '', entry.get('format'))
 			optn = Element('option', quality=quality,
-								url=str(entry.get('url')),
+								download_url=str(entry.get('url')),
 								location=str(entry.get('location')),
 								player_url=str(entry.get('player_url')))
 			if extension not in formats:
