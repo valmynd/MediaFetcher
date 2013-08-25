@@ -25,7 +25,7 @@ class QueueTreeView(QTreeView):
 		self.infobox = InfoBoxDialog(self, self.model())
 
 		# Other basic configuration
-		self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
+		#self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
 		self.header().setMaximumHeight(21)
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
 		self.setSelectionMode(QAbstractItemView.ExtendedSelection)

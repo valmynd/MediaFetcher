@@ -4,6 +4,7 @@ from multiprocessing import Pool, Queue
 from extract import extract_url, pool_init
 import tempfile
 import os
+import re
 
 thumbnail_path = os.path.join(tempfile.gettempdir(), "mediafetcher_thumbnails")
 if not os.path.exists(thumbnail_path):
@@ -25,8 +26,8 @@ class ClipBoardModel(QueueModel):
 
 	def _add_to_internal_dict(self, element, parent, num_row):
 		QueueModel._add_to_internal_dict(self, element, parent, num_row)
-		# each row gets one combobox for the extension and one for the quality options
 		if element.tag == "item":
+			# each row gets one combobox for the extension and one for the quality options
 			format_combobox = QComboBox()   # see ComboBoxDelegate.createEditor()
 			quality_combobox = QComboBox()  # see ComboBoxDelegate.createEditor()
 			# get selected extension -> fallback: take the first which got parsed from XML
@@ -49,6 +50,22 @@ class ClipBoardModel(QueueModel):
 			quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
 			self.combo_boxes_format[element] = format_combobox
 			self.combo_boxes_quality[element] = quality_combobox
+			# setup defaults for path and filename
+			if "path" not in element.attrib:
+				path = self.settings.value("DefaultDownloadFolder")
+				element.attrib["path"] = path
+			if "filename" not in element.attrib:
+				filename = self.settings.value("DefaultFileName")
+				# TODO: some of these template-filling shall happen when an Item is moved
+				# to DownloadView, as quality and extension will change until then
+				mapping = {
+					'title': element.get("title"),
+					'url': element.get("url"),
+					'host': element.get("host"),
+					#'extension': selected_extension,
+					#'quality': selected_quality
+				}
+				element.attrib["filename"] = fill_filename_template(filename, mapping)
 
 	def addURL(self, url):
 		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """
@@ -68,3 +85,26 @@ class ClipBoardModel(QueueModel):
 		self.removeRow(num_row)
 		element = etree.fromstring(result)
 		self.addElement(element)
+
+
+def fill_filename_template(filename, mapping):
+	"""
+	Filename Template Conventions:
+	%extension% -> transform to lowercase (mp4)
+	%EXTENSION% -> transform to uppercase (MP4)
+	%Extension%, %ExTenSiOn% or something like that -> no transformation
+
+	@param filename: filename that contains template variables to be replaced
+	@param mapping: python dict that maps keys to replacement values
+	@return: str
+	"""
+	for match in re.findall('(?<=%)[A-Za-z]+(?=%)', filename):
+		replaced_str = "%" + match + "%"
+		if match.lower() in mapping.keys():
+			if match.islower():
+				filename = filename.replace(replaced_str, mapping[match].lower())
+			elif match.isupper():
+				filename = filename.replace(replaced_str, mapping[match.lower()].upper())
+			else:
+				filename = filename.replace(replaced_str, mapping[match.lower()])
+	return filename

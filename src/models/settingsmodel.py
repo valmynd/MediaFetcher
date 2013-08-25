@@ -1,4 +1,5 @@
 from PySide.QtCore import *
+import os
 
 
 class SettingsModel(QAbstractTableModel):
@@ -9,11 +10,19 @@ class SettingsModel(QAbstractTableModel):
 	"""
 
 	# note: by the inifile "standards", there must be no whitespaces in keys!
-	_keys = ["DownloadFolder"]
+	_keys = ["DefaultDownloadFolder", "DefaultFileName"]
 
 	def __init__(self, qsettings_object):
 		QAbstractTableModel.__init__(self)
 		self.settings = qsettings_object
+		self.initDefaults()
+
+	def initDefaults(self):
+		folder = self.settings.value("DefaultDownloadFolder")
+		if folder is None or not os.access(folder, os.W_OK):
+			self.settings.setValue("DefaultDownloadFolder", os.path.join(QDir.homePath(), "Downloads"))
+		if self.settings.value("DefaultFileName") is None:
+			self.settings.setValue("DefaultFileName", "%Title%.%HOST%.%extension%")
 
 	def rowCount(self, parent):
 		return 1
