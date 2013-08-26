@@ -25,6 +25,12 @@ class ClipBoardModel(QueueModel):
 		QueueModel._init_internal_dict(self)
 
 	def _add_to_internal_dict(self, element, parent, num_row):
+		"""
+
+		@param element:
+		@param parent:
+		@param num_row:
+		"""
 		QueueModel._add_to_internal_dict(self, element, parent, num_row)
 		if element.tag == "item":
 			# each row gets one combobox for the extension and one for the quality options
@@ -56,15 +62,9 @@ class ClipBoardModel(QueueModel):
 				element.attrib["path"] = path
 			if "filename" not in element.attrib:
 				filename = self.settings.value("DefaultFileName")
-				# TODO: some of these template-filling shall happen when an Item is moved
-				# to DownloadView, as quality and extension will change until then
-				mapping = {
-					'title': element.get("title"),
-					'url': element.get("url"),
-					'host': element.get("host"),
-					#'extension': selected_extension,
-					#'quality': selected_quality
-				}
+				# some of the template-filling will happen when an Item is moved to DownloadModel, as
+				# quality and extension will most probably change until then
+				mapping = dict(title=element.get("title"), url=element.get("url"), host=element.get("host"))
 				element.attrib["filename"] = fill_filename_template(filename, mapping)
 
 	def addURL(self, url):
@@ -73,18 +73,17 @@ class ClipBoardModel(QueueModel):
 		self.pool.apply_async(func=extract_url, args=(url,))
 
 	def updateProgress(self):
-		if self.queue.empty():
-			return
-		url, result = self.queue.get()
-		task = self._root.find("task[@url='%s']" % url)
-		parent, num_row = self._n[task]
-		if isinstance(result, Exception):
-			index = self.createIndex(num_row, 2, task)
-			self.setData(index, str(result), Qt.EditRole)
-			return
-		self.removeRow(num_row)
-		element = etree.fromstring(result)
-		self.addElement(element)
+		while not self.queue.empty():
+			url, result = self.queue.get()
+			task = self._root.find("task[@url='%s']" % url)
+			parent, num_row = self._n[task]
+			if isinstance(result, Exception):
+				index = self.createIndex(num_row, 2, task)
+				self.setData(index, str(result), Qt.EditRole)
+				return
+			self.removeRow(num_row)
+			element = etree.fromstring(result)
+			self.addElement(element)
 
 
 def fill_filename_template(filename, mapping):

@@ -2,7 +2,7 @@ from models.modelbase import *
 from PySide.QtGui import QProgressBar
 from multiprocessing import Pool, Queue
 from download import download, pool_init
-import os
+from models.clipboardmodel import fill_filename_template
 
 
 class DownloadModel(QueueModel):
@@ -22,6 +22,7 @@ class DownloadModel(QueueModel):
 	def _add_to_internal_dict(self, element, parent, num_row):
 		QueueModel._add_to_internal_dict(self, element, parent, num_row)
 		if element.tag == "item":
+			# TODO: check if file exists and if so, initialize percentage
 			progressbar = QProgressBar()
 			progressbar.setValue(0)
 			self.progress_bars[element] = progressbar
@@ -36,6 +37,10 @@ class DownloadModel(QueueModel):
 			selected_quality = selected_format.get("selected")
 			option = element.find("format[@extension='%s']/option[@quality='%s']" % (selected_extension, selected_quality))
 			self.option_elements[element] = option
+			# fill remaining filename template, extension and quality shall not change within DownloadModel
+			mapping = dict(title=element.get("title"), url=element.get("url"), host=element.get("host"),
+								extension=selected_extension, quality=selected_quality)
+			element.attrib["filename"] = fill_filename_template(element.attrib["filename"], mapping)
 
 	def data(self, index, role):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
@@ -49,14 +54,6 @@ class DownloadModel(QueueModel):
 					# data() is called VERY often, even when the column ain't visible -> avoid xpath queries here
 					option = self.option_elements[element]
 					return option.attrib.get("quality")
-				elif num_col == 10:
-					#path = element.attrib.get("path")
-					#size = element.attrib.get("size")
-					#if path is None or size is None or not os.path.exists(path):
-					#	return 0
-					#realsize = os.path.getsize(path)
-					#return realsize / size * 100  # percentage
-					return 0
 			return QueueModel.data(self, index, role)
 
 	def start(self):
@@ -64,12 +61,24 @@ class DownloadModel(QueueModel):
 			item.attrib["status"] = "Progressing"  # TODO: self.dataChanged.emit(index, index)
 			option = self.option_elements[item]
 			self.pool.apply_async(func=download, args=(item.get("url"), item.get("path"), item.get("filename"),
-						option.get("download_url"), option.get("download_url")))
+																	 option.get("download_url"), option.get("download_url")))
 
 	def pause(self):
 		pass
 
 	def updateProgress(self):
-		if self.resultqueue.empty():
-			return
-		pass
+		while not self.resultqueue.empty():
+			url, result_dict = self.resultqueue.get()
+			item = self._root.find("item[@url='%s']" % url)
+			if item is None:
+				# TODO: item might have gotten deleted in the GUI, send abort signal!
+				return
+			progressbar = self.progress_bars[item]
+			print(result_dict)
+			if result_dict["status"] == "downloading":
+				# TODO: Bandwidth
+				percentage = result_dict.get("downloaded_bytes", 0) / result_dict.get("total_bytes", 1) * 100
+				progressbar.setValue(percentage)
+			elif result_dict["status"] == "finished":
+				item.attrib["status"] = "Ready"  # TODO: datachanged()
+				progressbar.setValue(100)

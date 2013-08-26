@@ -69,7 +69,7 @@ def pool_init_for_youtubedl(function_to_apply_to):
 								nopart=False, noprogress=False, password=None, username=None,
 								playlistend=-1, playliststart=1, prefer_free_formats=False, quiet=False,
 								ratelimit=None, rejecttitle=None, retries=10, simulate=False, skip_download=False,
-								subtitleslang=None, subtitlesformat="srt", test=True, updatetime=True,
+								subtitleslang=None, subtitlesformat="srt", test=False, updatetime=True,
 								usenetrc=False, verbose=True, writedescription=False,
 								writeinfojson=True, writesubtitles=False, onlysubtitles=False, allsubtitles=False,
 								listssubtitles=False, outtmpl="%(id)s.%(ext)s"))

@@ -3,19 +3,19 @@ from extract import pool_init_for_youtubedl
 import os
 
 
-def download_using_youtubedl(url, path, filename, download_url, player_url):
+def download_using_youtubedl(url, path, filename, download_url, player_url, queue):
 	ydl = download_using_youtubedl.ydl  # see pool_init_for_youtubedl()
 	fdl = FileDownloader(ydl, ydl.params)
 	info_dict = {
-	'url': download_url,
-	'player_url': player_url,
-	'page_url': url,
-	#'play_path': None,
-	#'tc_url': None,
-	#'urlhandle': None,
-	#'user_agent': None,
+		'url': download_url,
+		'player_url': player_url,
+		'page_url': url,
+		#'play_path': None,
+		#'tc_url': None,
+		#'urlhandle': None,
+		#'user_agent': None,
 	}
-	fdl.add_progress_hook(lambda d: print(d))
+	fdl.add_progress_hook(lambda d: queue.put((url, d)) and print(d))
 	filepath = os.path.join(path, filename)
 	fdl._do_download(filepath, info_dict)
 
@@ -32,7 +32,7 @@ def download(url, path, filename, download_url, player_url):
 	try:
 		# in view: switch status to Progressing
 		# when updateProgress() handles the response, the next item is started
-		download_using_youtubedl(url, path, filename, download_url, player_url)
+		download_using_youtubedl(url, path, filename, download_url, player_url, download._resultqueue)
 		# handle pause: whenever a process notifies about progress, there must be messurement to abort
 		#download._queue.put((url, xml))
 		pass
