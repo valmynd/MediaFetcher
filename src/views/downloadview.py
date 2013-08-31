@@ -1,6 +1,9 @@
 from views.viewbase import *
 from models.downloadmodel import DownloadModel
 
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
+
 
 class ProgressBarDelegate(QStyledItemDelegate):
 	def __init__(self, parent_widget, model):

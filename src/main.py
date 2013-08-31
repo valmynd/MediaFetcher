@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-
-___license___ = "GPL v3"
-
 from PySide.QtCore import *
 from PySide.QtGui import *
 from views import ClipBoardView, DownloadView, SettingsDialog
 
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
+
 
 class MainWindow(QMainWindow):
-	closed = Signal()
+	aboutToQuit = Signal()
 
 	def __init__(self):
 		QMainWindow.__init__(self)
@@ -18,7 +18,7 @@ class MainWindow(QMainWindow):
 		self.initToolBars()
 		self.initTrayIcon()
 		self.initTabs()
-		self.closed.connect(self.writeSettings)
+		self.aboutToQuit.connect(self.writeSettings)
 		self.setWindowTitle("Media Fetcher")
 		self.setWindowIcon(QIcon("../img/icon.png"))
 		self.resize(600, 400)
@@ -29,14 +29,9 @@ class MainWindow(QMainWindow):
 		if QSystemTrayIcon.isSystemTrayAvailable():
 			self.trayIcon.show()
 
-		# Check for progress periodically
-		self.timer = QTimer()
-		self.timer.timeout.connect(self.updateProgress)
-		self.timer.start(2000)
-
 	def closeEvent(self, event):
 		# http://qt-project.org/doc/qt-5.0/qtwidgets/qwidget.html#closeEvent
-		self.closed.emit()
+		self.aboutToQuit.emit()
 
 	def writeSettings(self):
 		pass
@@ -163,9 +158,6 @@ class MainWindow(QMainWindow):
 		#if '//' in text: # contains URL
 		self.clipboard_view.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
 		self.tabBar.setCurrentWidget(self.clipboard_view)
-
-	def updateProgress(self):
-		self.tabBar.currentWidget().model().updateProgress()
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()

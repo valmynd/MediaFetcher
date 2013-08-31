@@ -1,7 +1,10 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
-from views.infoview import InfoBoxDialog
+from .infoview import InfoBoxDialog
 import json
+
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
 
 
 class QueueTreeView(QTreeView):
@@ -17,7 +20,7 @@ class QueueTreeView(QTreeView):
 		self.header().setContextMenuPolicy(Qt.CustomContextMenu)
 		self.header().customContextMenuRequested.connect(self.chooseColumns)
 		self.loadSettings()
-		main_window.closed.connect(self.writeSettings)
+		main_window.aboutToQuit.connect(self.writeSettings)
 
 		# Setup Context Menu
 		self.setContextMenuPolicy(Qt.CustomContextMenu)

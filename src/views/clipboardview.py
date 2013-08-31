@@ -1,5 +1,8 @@
-from views.viewbase import *
-from models import ClipBoardModel
+from .viewbase import *
+from models.clipboardmodel import ClipBoardModel
+
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
 
 
 class ComboBoxDelegate(QStyledItemDelegate):

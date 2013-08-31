@@ -2,6 +2,9 @@ from PySide.QtCore import *
 from xml.etree import ElementTree as etree
 import os
 
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
+
 
 class ElementTreeModel(QAbstractItemModel):
 	"""
@@ -197,10 +200,10 @@ class QueueModel(ElementTreeModel):
 		self.pathToXMLFile = os.path.join(QFileInfo(qsettings_object.fileName()).absolutePath(), name_of_xml_file)
 		root = etree.parse(self.pathToXMLFile).getroot() if os.path.exists(self.pathToXMLFile) else etree.Element("queue")
 		ElementTreeModel.__init__(self, root)
-		main_window.closed.connect(self.writeXML)
+		main_window.aboutToQuit.connect(self.writeXML)
 
 	def writeXML(self):
-		with open(self.pathToXMLFile,'w') as file:
+		with open(self.pathToXMLFile, 'w') as file:
 			file.write(etree.tostring(self._root, encoding="unicode"))
 
 	def flags(self, index):

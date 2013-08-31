@@ -1,17 +1,21 @@
-from models.modelbase import *
+from .modelbase import *
 from PySide.QtGui import QProgressBar
-from multiprocessing import Pool, Queue
-from download import download, pool_init
-from models.clipboardmodel import fill_filename_template
+from core.downloadpool import DownloadPool
+from .clipboardmodel import fill_filename_template
+
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
 
 
 class DownloadModel(QueueModel):
 	def __init__(self, main_window, qsettings_object):
 		QueueModel.__init__(self, main_window, qsettings_object, "downloads.xml")
 
-		self.commandqueue = Queue()  # contains commands such as "abort", "requeue"
-		self.resultqueue = Queue()   # contains result tuples as such: (url, status, size_written, remote_size)
-		self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.commandqueue, self.resultqueue,))
+		#self.commandqueue = Queue()  # contains commands such as "abort", "requeue"
+		#self.resultqueue = Queue()   # contains result tuples as such: (url, status, size_written, remote_size)
+		#self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.commandqueue, self.resultqueue,))
+		self.pool = DownloadPool(callback=self.handleProgress)
+		main_window.aboutToQuit.connect(self.pool.shutdown)
 
 	def _init_internal_dict(self):
 		# this variant of ElementTreeModel has additional dicts to manage:
@@ -60,25 +64,24 @@ class DownloadModel(QueueModel):
 		for item in self._root.findall("item[@status='Queued']"):
 			item.attrib["status"] = "Progressing"  # TODO: self.dataChanged.emit(index, index)
 			option = self.option_elements[item]
-			self.pool.apply_async(func=download, args=(item.get("url"), item.get("path"), item.get("filename"),
-																	 option.get("download_url"), option.get("download_url")))
+			#self.pool.apply_async(func=download, args=args)
+			self.pool.add_task(item.get("url"), item.get("path"), item.get("filename"),
+									 option.get("download_url"), option.get("download_url"))
 
 	def pause(self):
 		pass
 
-	def updateProgress(self):
-		while not self.resultqueue.empty():
-			url, result_dict = self.resultqueue.get()
-			item = self._root.find("item[@url='%s']" % url)
-			if item is None:
-				# TODO: item might have gotten deleted in the GUI, send abort signal!
-				return
-			progressbar = self.progress_bars[item]
-			print(result_dict)
-			if result_dict["status"] == "downloading":
-				# TODO: Bandwidth
-				percentage = result_dict.get("downloaded_bytes", 0) / result_dict.get("total_bytes", 1) * 100
-				progressbar.setValue(percentage)
-			elif result_dict["status"] == "finished":
-				item.attrib["status"] = "Ready"  # TODO: datachanged()
-				progressbar.setValue(100)
+	def handleProgress(self, url, result_dict, failed, finished):
+		item = self._root.find("item[@url='%s']" % url)
+		if item is None:
+			# TODO: item might have gotten deleted in the GUI, send abort signal!
+			return
+		progressbar = self.progress_bars[item]
+		print(result_dict)
+		if result_dict["status"] == "downloading":
+			# TODO: Bandwidth
+			percentage = result_dict.get("downloaded_bytes", 0) / result_dict.get("total_bytes", 1) * 100
+			progressbar.setValue(percentage)
+		elif result_dict["status"] == "finished":
+			item.attrib["status"] = "Ready"  # TODO: datachanged()
+			progressbar.setValue(100)

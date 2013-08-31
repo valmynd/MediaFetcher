@@ -1,10 +1,12 @@
-from models.modelbase import *
+from .modelbase import *
 from PySide.QtGui import QComboBox
-from multiprocessing import Pool, Queue
-from extract import extract_url, pool_init
+from core.clipboardpool import ClipBoardPool
 import tempfile
 import os
 import re
+
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
 
 thumbnail_path = os.path.join(tempfile.gettempdir(), "mediafetcher_thumbnails")
 if not os.path.exists(thumbnail_path):
@@ -14,9 +16,10 @@ if not os.path.exists(thumbnail_path):
 class ClipBoardModel(QueueModel):
 	def __init__(self, main_window, qsettings_object):
 		QueueModel.__init__(self, main_window, qsettings_object, "clipboard.xml")
-
-		self.queue = Queue()
-		self.pool = Pool(processes=2, initializer=pool_init, initargs=(self.queue,))
+		#self.queue = Queue()
+		#self.pool = Pool(processes=2, initializer=pool_init, initargs=(self.queue,))
+		self.pool = ClipBoardPool(callback=self.handleProgress)
+		main_window.aboutToQuit.connect(self.pool.shutdown)
 
 	def _init_internal_dict(self):
 		# this variant of ElementTreeModel has additional dicts to manage:
@@ -25,12 +28,6 @@ class ClipBoardModel(QueueModel):
 		QueueModel._init_internal_dict(self)
 
 	def _add_to_internal_dict(self, element, parent, num_row):
-		"""
-
-		@param element:
-		@param parent:
-		@param num_row:
-		"""
 		QueueModel._add_to_internal_dict(self, element, parent, num_row)
 		if element.tag == "item":
 			# each row gets one combobox for the extension and one for the quality options
@@ -70,20 +67,19 @@ class ClipBoardModel(QueueModel):
 	def addURL(self, url):
 		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """
 		self.addElement(etree.Element('task', url=url, status="Extracting"))
-		self.pool.apply_async(func=extract_url, args=(url,))
+		#self.pool.apply_async(func=extract_url, args=(url,))
+		self.pool.add_task(url)
 
-	def updateProgress(self):
-		while not self.queue.empty():
-			url, result = self.queue.get()
-			task = self._root.find("task[@url='%s']" % url)
-			parent, num_row = self._n[task]
-			if isinstance(result, Exception):
-				index = self.createIndex(num_row, 2, task)
-				self.setData(index, str(result), Qt.EditRole)
-				return
-			self.removeRow(num_row)
-			element = etree.fromstring(result)
-			self.addElement(element)
+	def handleProgress(self, url, result, failed, finished):
+		task = self._root.find("task[@url='%s']" % url)
+		parent, num_row = self._n[task]
+		if isinstance(result, Exception):
+			index = self.createIndex(num_row, 2, task)
+			self.setData(index, str(result), Qt.EditRole)
+			return
+		self.removeRow(num_row)
+		element = etree.fromstring(result)
+		self.addElement(element)
 
 
 def fill_filename_template(filename, mapping):

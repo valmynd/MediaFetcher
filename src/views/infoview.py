@@ -2,6 +2,9 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 from views.settingsview import QFolderChooser
 
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
+
 
 class InfoBoxDialog(QDialog):
 	def __init__(self, parent_widget, model):

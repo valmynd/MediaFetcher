@@ -1,4 +1,3 @@
-## before executing this script, delete everything except this file
 ## TODO: plugin manager within the GUI
 touch __init__.py
 # http://pyload.org/ TODO: python3, paths

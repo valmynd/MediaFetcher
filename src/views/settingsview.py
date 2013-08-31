@@ -1,7 +1,10 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
-from models import SettingsModel
+from models.settingsmodel import SettingsModel
 import os
+
+__author__ = "C. Wilhelm"
+___license___ = "GPL v3"
 
 
 class QFolderChooser(QLineEdit):
