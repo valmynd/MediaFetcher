@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from PySide.QtCore import *
 from PySide.QtGui import *
-from views import ClipBoardView, DownloadView, SettingsDialog
+from views.clipboardview import ClipBoardView
+from views.downloadview import DownloadView
+from views.settingsview import SettingsDialog
+from plugins import *
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"

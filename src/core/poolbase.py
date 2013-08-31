@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from multiprocessing import Process, SimpleQueue, Event
-from plugins.youtubedlplugin import YoutubeDLPlugin
 from PySide.QtCore import *
 from PySide.QtGui import *
 
@@ -9,8 +8,6 @@ ___license___ = "GPL v3"
 
 
 class QueueProcess(Process):
-	Plugins = [YoutubeDLPlugin]  # TODO: Make Configurable
-
 	def __init__(self, task_queue, result_queue):
 		Process.__init__(self)
 		self.function = self.compute  # change this in subclasses

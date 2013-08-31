@@ -1,28 +1,44 @@
-from .poolbase import *
+from .clipboardpool import ClipBoardProcess
+from .downloadpool import DownloadProcess
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
 
 
-class Plugin(object):
+class PluginMeta(type):
+	def __init__(cls, name, bases, attrs):
+		if cls.implements_extract:
+			ClipBoardProcess.Plugins.append(cls)
+		if cls.implements_download:
+			DownloadProcess.Plugins.append(cls)
+		type.__init__(cls, name, bases, attrs)
+
+
+class Plugin(object, metaclass=PluginMeta):
+	"""
+	subclass this and put it into a python file within the plugin directory
+	the file name must contain the word "plugin" and must end with ".py"
+	check out plugins/youtubedlplugin.py for a working example
+	"""
 	implements_extract = False
 	implements_download = False
 
 	def __init__(self, process):
 		"""@param process: QueueProcess object"""
-		# TODO: register plugin via metaclass
 		self._process = process
 		self.interrupt = self._process.hard_interrupt
 		self.send_result = self._process.send_result
 
 	def extract(self, url):
 		"""
-		@return: either an <item> or <package> xml fragment (string)
+		calls send_result() either with an <item> or <package> xml fragment (string)
+		if extraction process takes long time, this method shall check for self.interrupt.is_set() from time to time
 		"""
 		raise NotImplementedError
 
 	def download(self, url, path, filename, download_url, player_url):
 		"""
-		@return: dictionary with the following keys: [...]
+		calls send_result() with a dictionary containing the following keys: [...]
+		an implementation of this method shall check for self.interrupt.is_set() periodically
 		"""
 		raise NotImplementedError
