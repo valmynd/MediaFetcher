@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from PySide.QtCore import *
 import os
 
@@ -9,12 +10,19 @@ class SettingsModel(QAbstractTableModel):
 	For internal purposes, the QSettings object should be used directly, instead.
 	"""
 
-	# note: by the inifile "standards", there must be no whitespaces in keys!
-	_keys = ["DefaultDownloadFolder", "DefaultFileName"]
+	_entries = OrderedDict((
+		("DefaultDownloadFolder", "Default Download Folder:"),
+		("DefaultFileName", "Default File Name:"),
+		("DownloadSpeedLimit", "Download Speed Limit:"),
+		("PoolUpdateFrequency", "Update Interval:"),
+		("DownloadProcesses", "Number of Download Processes:"),
+		("ExtractionProcesses", "Number of Extraction Processes:"),
+	))
 
 	def __init__(self, qsettings_object):
 		QAbstractTableModel.__init__(self)
 		self.settings = qsettings_object
+		self._keys = list(self._entries.keys())
 		self.initDefaults()
 
 	def initDefaults(self):
@@ -37,9 +45,11 @@ class SettingsModel(QAbstractTableModel):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
 			num_col = index.column()
 			key = self._keys[num_col]
+			print(key, self.settings.value(key))
 			return self.settings.value(key)
 
 	def setData(self, index, value, role):
+		#print("KHKSFHKS")
 		if role != Qt.EditRole:
 			return False
 		num_col = index.column()

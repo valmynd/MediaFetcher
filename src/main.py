@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from PySide.QtCore import *
 from PySide.QtGui import *
+from models.settingsmodel import SettingsModel
 from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
-from views.settingsview import SettingsDialog
+from views.settingsview import SettingsDialog, SettingsStatusBar
 from plugins import *
 
 __author__ = "C. Wilhelm"
@@ -25,7 +26,6 @@ class MainWindow(QMainWindow):
 		self.setWindowTitle("Media Fetcher")
 		self.setWindowIcon(QIcon("../img/icon.png"))
 		self.resize(600, 400)
-		self.statusBar()
 
 		# monitor Clipboard
 		QApplication.clipboard().dataChanged.connect(self.clipBoardChanged)
@@ -42,7 +42,10 @@ class MainWindow(QMainWindow):
 	def loadSettings(self):
 		self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "MediaFetcher", "MediaFetcher")
 		self.settingsPath = QFileInfo(self.settings.fileName()).absolutePath()
-		self.settingsDialog = SettingsDialog(self, self.settings)
+		self.settingsModel = SettingsModel(self.settings)
+		#self.settingsMapper = SettingsWidgetMapper(self.settingsModel)
+		self.settingsDialog = SettingsDialog(self, self.settingsModel)
+		self.setStatusBar(SettingsStatusBar(self, self.settingsModel))
 
 	def showSettings(self):
 		self.settingsDialog.open()
@@ -122,12 +125,12 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabBar)
 
 		# Downloads Tab
-		self.download_view = DownloadView(self, self.settings)
-		self.tabBar.addTab(self.download_view, "Downloads")
+		self.downloadView = DownloadView(self, self.settings)
+		self.tabBar.addTab(self.downloadView, "Downloads")
 
 		# Clipboard Tab
-		self.clipboard_view = ClipBoardView(self, self.settings, self.download_view)
-		self.tabBar.addTab(self.clipboard_view, "Clipboard")
+		self.clipboardView = ClipBoardView(self, self.settings, self.downloadView)
+		self.tabBar.addTab(self.clipboardView, "Clipboard")
 		self.tabBar.setCurrentIndex(1)
 
 		# Close Button for all Tabs except Downloads, Clipboard
@@ -159,8 +162,9 @@ class MainWindow(QMainWindow):
 		#if text is None:
 		#	text = self.searchBar.text().strip()
 		#if '//' in text: # contains URL
-		self.clipboard_view.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
-		self.tabBar.setCurrentWidget(self.clipboard_view)
+		#self.clipboardView.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
+		#self.tabBar.setCurrentWidget(self.clipboardView)
+		pass
 
 	def toggleStatusBar(self):
 		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()
@@ -175,14 +179,14 @@ class MainWindow(QMainWindow):
 			self.startButton.setDefaultAction(self.startAction)
 			self.startAction.setDisabled(False)
 			self.pauseAction.setDisabled(True)
-			self.download_view.model().pause()
+			self.downloadView.model().pause()
 		else:
 			self.startButton.removeAction(self.startAction)
 			self.startButton.setDefaultAction(self.pauseAction)
 			self.pauseAction.setDisabled(False)
 			self.startAction.setDisabled(True)
-			self.tabBar.setCurrentWidget(self.download_view)
-			self.download_view.model().start()
+			self.tabBar.setCurrentWidget(self.downloadView)
+			self.downloadView.model().start()
 
 
 if __name__ == '__main__':

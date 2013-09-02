@@ -1,6 +1,6 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
-from views.settingsview import QFolderChooser
+#from views.settingsview import QFolderChooser
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
@@ -16,7 +16,7 @@ class InfoBoxDialog(QDialog):
 		self.descriptionField.setFixedHeight(self.titleField.sizeHint().height() * 2)
 		self.thumbnailField = QLabel(self)
 		self.thumbnailField.setPixmap(QPixmap('../img/thumbnail_placeholder.png'))
-		self.downloadFolderField = QFolderChooser(self)
+		#self.downloadFolderField = QFolderChooser(self)
 		self.fileNameField = QLineEdit(self)
 		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 		buttonbox.accepted.connect(self.submit)
@@ -25,7 +25,7 @@ class InfoBoxDialog(QDialog):
 		layout.addRow(QLabel("Title:"), self.titleField)
 		layout.addRow(QLabel("Description:"), self.descriptionField)
 		layout.addRow(QLabel("Thumbnail:"), self.thumbnailField)
-		layout.addRow(QLabel("Download Folder:"), self.downloadFolderField)
+		#layout.addRow(QLabel("Download Folder:"), self.downloadFolderField)
 		layout.addRow(QLabel("File Name:"), self.fileNameField)
 		layout.addRow(QLabel())
 		layout.addRow(buttonbox)
@@ -33,7 +33,7 @@ class InfoBoxDialog(QDialog):
 		self.mapper.setModel(model)
 		self.mapper.addMapping(self.titleField, 0)
 		self.mapper.addMapping(self.descriptionField, 3)
-		self.mapper.addMapping(self.downloadFolderField, 5)
+		#self.mapper.addMapping(self.downloadFolderField, 5)
 		self.mapper.addMapping(self.fileNameField, 6)
 		self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
 		self.setLayout(layout)

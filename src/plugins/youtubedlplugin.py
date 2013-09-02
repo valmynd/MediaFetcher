@@ -1,7 +1,6 @@
-from xml.etree.ElementTree import Element, tostring
-
 from core.pluginbase import *
-from plugins.youtube_dl.YoutubeDL import *
+from .youtube_dl.YoutubeDL import *
+from xml.etree.ElementTree import Element, tostring
 
 
 class YoutubeDLPlugin(Plugin):

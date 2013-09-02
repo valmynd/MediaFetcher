@@ -27,12 +27,15 @@ class Plugin(object, metaclass=PluginMeta):
 		"""@param process: QueueProcess object"""
 		self._process = process
 		self.interrupt = self._process.hard_interrupt
-		self.send_result = self._process.send_result
+
+	def send_result(self, task_id, result_object, is_ready=False):
+		self._process.send_result(task_id, result_object, is_ready=is_ready)
 
 	def extract(self, url):
 		"""
 		calls send_result() either with an <item> or <package> xml fragment (string)
 		if extraction process takes long time, this method shall check for self.interrupt.is_set() from time to time
+		@param url: url (string) to extract information from; used as task_id
 		"""
 		raise NotImplementedError
 
