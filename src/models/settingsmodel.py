@@ -45,15 +45,14 @@ class SettingsModel(QAbstractTableModel):
 		if index.isValid() and role in (Qt.DisplayRole, Qt.EditRole):
 			num_col = index.column()
 			key = self._keys[num_col]
-			print(key, self.settings.value(key))
 			return self.settings.value(key)
 
 	def setData(self, index, value, role):
-		#print("KHKSFHKS")
 		if role != Qt.EditRole:
 			return False
 		num_col = index.column()
 		key = self._keys[num_col]
+		print(key, value)
 		self.settings.setValue(key, value)
 		self.dataChanged.emit(index, index)
 		return True

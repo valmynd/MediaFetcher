@@ -55,7 +55,7 @@ class SettingsWidgetMapper(QDataWidgetMapper):
 		"""
 		num_col = self.settingsModel._keys.index(settings_key)
 		label_text = self.settingsModel._entries[settings_key]
-		print(num_col, label_text)
+		#print(num_col, label_text)
 		self.addMapping(input_widget, num_col)
 		return QLabel(label_text)
 
@@ -95,21 +95,21 @@ class SpinBoxAction(QWidgetAction):
 		QWidgetAction.__init__(self, parent)
 		self.settings_key = settings_key
 		self.mapper = mapper
+		self.createWidget2(parent)
 
 	def createMainWidget(self):
 		if self.settings_key == "PoolUpdateFrequency":
 			return QDoubleSpinBox()
 		return QSpinBox()
 
-	def createWidget(self, parent):
+	def createWidget2(self, parent):
 		# From QT Docs: "When a QToolBar is not a child of a QMainWindow , it looses the ability to populate the
 		# extension pop up with widgets added to the toolbar using QToolBar.addWidget() . Please use widget actions
 		# created by inheriting QWidgetAction and implementing QWidgetAction.createWidget() instead"
-		# -> if I would not do it this way, the QToolBarExtension Button would not work at all in this scenario
-		#    (tried creating the widget in the constructor and calling setDefaultWidget() with the described result)
+		# -> this would have ment the widgets would be created and removed again and again
+		# -> ditched the hole thing and made a toolbar inside QMainWindow out of it
 		widget = self.createMainWidget()
 		label = self.mapper.map(widget, self.settings_key)
-		widget = self.createMainWidget()
 		layout = QHBoxLayout()
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.addWidget(label)
@@ -118,34 +118,28 @@ class SpinBoxAction(QWidgetAction):
 		default = QWidget(parent)
 		default.setLayout(layout)
 		default.setParent(parent)
-		#self.setDefaultWidget(default)
-		self.mapper.toFirst()
-		return default
+		self.setDefaultWidget(default)
 
 
-class SettingsStatusBar(QStatusBar):
-	# depending on which tab is opened, show number of download or clipboard processes (etc.)
-	# TODO: configurable short-cuts to settings in statusbar
+class SettingsToolBar(QToolBar):
 	def __init__(self, main_window, settings_model):
-		QStatusBar.__init__(self, main_window)
+		QToolBar.__init__(self, main_window)
 		self.mainWindow = main_window
-		#self.mainWindow.tabBar.currentChanged.connect(self.changeContext)
-		self.setSizeGripEnabled(False)
 		self.label = QLabel("Download Speed: 0 kb/s")
-		self.toolBar = QToolBar()
-		self.toolBar.addWidget(self.label)
 		self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-		self.addWidget(self.toolBar, stretch=True)
+		self.setStyleSheet("QToolBar { border: 0px; }")  # somehow, this line fixes the background color
 
 		self.settingsModel = settings_model
 		self.mapper = SettingsWidgetMapper(settings_model)
 		self.mapper.setSubmitPolicy(QDataWidgetMapper.AutoSubmit)
 
-		self.toolBar.addSeparator()
-		self.toolBar.addAction(SpinBoxAction(self.toolBar, self.mapper, "DownloadSpeedLimit"))
-		self.toolBar.addSeparator()
-		self.toolBar.addAction(SpinBoxAction(self.toolBar, self.mapper, "PoolUpdateFrequency"))
-		self.toolBar.addSeparator()
-		self.toolBar.addAction(SpinBoxAction(self.toolBar, self.mapper, "DownloadProcesses"))
-		self.toolBar.addSeparator()
-		self.toolBar.addAction(SpinBoxAction(self.toolBar, self.mapper, "ExtractionProcesses"))
+		self.addWidget(self.label)
+		self.addSeparator()
+		self.addAction(SpinBoxAction(self, self.mapper, "DownloadSpeedLimit"))
+		self.addSeparator()
+		self.addAction(SpinBoxAction(self, self.mapper, "PoolUpdateFrequency"))
+		self.addSeparator()
+		self.addAction(SpinBoxAction(self, self.mapper, "DownloadProcesses"))
+		self.addSeparator()
+		self.addAction(SpinBoxAction(self, self.mapper, "ExtractionProcesses"))
+		self.mapper.toFirst()

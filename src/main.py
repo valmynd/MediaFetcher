@@ -4,7 +4,7 @@ from PySide.QtGui import *
 from models.settingsmodel import SettingsModel
 from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
-from views.settingsview import SettingsDialog, SettingsStatusBar
+from views.settingsview import SettingsDialog, SettingsToolBar, SettingsWidgetMapper, SpinBoxAction
 from plugins import *
 
 __author__ = "C. Wilhelm"
@@ -43,9 +43,11 @@ class MainWindow(QMainWindow):
 		self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "MediaFetcher", "MediaFetcher")
 		self.settingsPath = QFileInfo(self.settings.fileName()).absolutePath()
 		self.settingsModel = SettingsModel(self.settings)
-		#self.settingsMapper = SettingsWidgetMapper(self.settingsModel)
 		self.settingsDialog = SettingsDialog(self, self.settingsModel)
-		self.setStatusBar(SettingsStatusBar(self, self.settingsModel))
+		self.mapper = SettingsWidgetMapper(self.settingsModel)
+		self.mapper.setSubmitPolicy(QDataWidgetMapper.AutoSubmit)
+		self.bottomBar = SettingsToolBar(self, self.settingsModel)
+		self.addToolBar(Qt.BottomToolBarArea, self.bottomBar)
 
 	def showSettings(self):
 		self.settingsDialog.open()
@@ -167,7 +169,7 @@ class MainWindow(QMainWindow):
 		pass
 
 	def toggleStatusBar(self):
-		self.statusBar().show() if self.statusBar().isHidden() else self.statusBar().hide()
+		self.bottomBar.show() if self.bottomBar.isHidden() else self.bottomBar.hide()
 
 	def trayActivated(self, reason):
 		if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
