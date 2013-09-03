@@ -15,8 +15,8 @@ class SettingsModel(QAbstractTableModel):
 		("DefaultFileName", "Default File Name:"),
 		("DownloadSpeedLimit", "Download Speed Limit:"),
 		("PoolUpdateFrequency", "Update Interval:"),
-		("DownloadProcesses", "Number of Download Processes:"),
-		("ExtractionProcesses", "Number of Extraction Processes:"),
+		("DownloadProcesses", "Download Processes:"),
+		("ExtractionProcesses", "Extraction Processes:"),
 	))
 
 	def __init__(self, qsettings_object):
@@ -52,7 +52,7 @@ class SettingsModel(QAbstractTableModel):
 			return False
 		num_col = index.column()
 		key = self._keys[num_col]
-		print(key, value)
+		#print(key, value)
 		self.settings.setValue(key, value)
 		self.dataChanged.emit(index, index)
 		return True

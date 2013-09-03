@@ -4,11 +4,106 @@ from PySide.QtGui import *
 from models.settingsmodel import SettingsModel
 from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
-from views.settingsview import SettingsDialog, SettingsToolBar, SettingsWidgetMapper, SpinBoxAction
+from views.settingsview import SettingsDialog, SettingsToolBar, ConfigurableToolBar
 from plugins import *
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
+
+
+class TrayIcon(QSystemTrayIcon):
+	def __init__(self, main_window):
+		QSystemTrayIcon.__init__(self, main_window)
+		self.mainWindow = main_window
+		self.activated.connect(self.trayActivated)
+		self.setIcon(QIcon("../img/icon.png"))
+		self.minimizeAction = QAction("Mi&nimize", self, triggered=main_window.hide)
+		self.maximizeAction = QAction("Ma&ximize", self, triggered=main_window.showMaximized)
+		self.restoreAction = QAction("&Restore", self, triggered=main_window.showNormal)
+		self.quitAction = QAction("&Quit", self, shortcut="Ctrl+Q", triggered=main_window.close)
+		self.quitAction.setIcon(QIcon.fromTheme("application-exit"))
+		menu = QMenu(main_window)
+		menu.addAction(self.minimizeAction)
+		menu.addAction(self.maximizeAction)
+		menu.addAction(self.restoreAction)
+		menu.addSeparator()
+		menu.addAction(self.quitAction)
+		self.setContextMenu(menu)
+		if QSystemTrayIcon.isSystemTrayAvailable():
+			self.show()
+
+	def trayActivated(self, reason):
+		if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+			self.mainWindow.showNormal() if self.mainWindow.isHidden() else self.mainWindow.hide()
+
+
+class SearchBar(QLineEdit):
+	def __init__(self, callback=None):
+		QLineEdit.__init__(self)
+		self.button = QToolButton(self)
+		self.button.setIcon(QIcon("../img/edit-clear.png"))
+		self.button.setCursor(Qt.ArrowCursor)
+		self.button.clicked.connect(self.clear)
+		self.button.hide()
+		self.textChanged.connect(self.toggleButton)
+		if callback is not None:
+			self.returnPressed.connect(lambda: callback(self.text()))
+
+	def resizeEvent(self, event):
+		self.button.setStyleSheet("QToolButton {margin: 0 0 0 0; border: 0px;}")
+		x = self.size().width() - self.button.sizeHint().width()
+		self.button.move(x, 0)
+
+	def toggleButton(self):
+		self.button.setVisible(bool(self.text()))
+
+
+class MainToolBar(ConfigurableToolBar):
+	def __init__(self, main_window):
+		ConfigurableToolBar.__init__(self, "Toolbar", main_window)
+		self.mainWindow = main_window
+		self.openAction = QAction("&Open Container File", self, triggered=main_window.open)
+		self.startAction = QAction("&Start Downloads", self, triggered=self.togglePause)
+		self.pauseAction = QAction("&Pause Downloads", self, triggered=self.togglePause)
+		self.settingsAction = QAction("Prefere&nces", self, triggered=main_window.showSettings)
+		self.searchAction = QAction("Search Button", self, triggered=main_window.search)
+		self.openAction.setIcon(QIcon.fromTheme("folder-open"))
+		self.startAction.setIcon(QIcon.fromTheme("media-playback-start"))
+		self.pauseAction.setIcon(QIcon.fromTheme("media-playback-pause"))
+		self.settingsAction.setIcon(QIcon.fromTheme("emblem-system"))
+		self.searchAction.setIcon(QIcon.fromTheme("system-search"))
+
+		self.searchBar = SearchBar(callback=main_window.search)
+		self.searchBarAction = QWidgetAction(self)
+		self.searchBarAction.setText("Search Bar")  # make it checkable in the menu of visible actions
+		self.searchBarAction.setDefaultWidget(self.searchBar)
+
+		self.startButton = QToolButton(self)
+		self.startButton.setDefaultAction(self.startAction)
+		self.startButtonAction = QWidgetAction(self)
+		self.startButtonAction.setText("Start/Pause Downloads")
+		self.startButtonAction.setDefaultWidget(self.startButton)
+
+		self.addAction(self.openAction)
+		self.addAction(self.searchBarAction)
+		self.addAction(self.searchAction)
+		self.addAction(self.startButtonAction)
+		self.addAction(self.settingsAction)
+
+	def togglePause(self):
+		if self.startButton.defaultAction() == self.pauseAction:
+			self.startButton.removeAction(self.pauseAction)
+			self.startButton.setDefaultAction(self.startAction)
+			self.startAction.setDisabled(False)
+			self.pauseAction.setDisabled(True)
+			self.mainWindow.downloadView.model().pause()
+		else:
+			self.startButton.removeAction(self.startAction)
+			self.startButton.setDefaultAction(self.pauseAction)
+			self.pauseAction.setDisabled(False)
+			self.startAction.setDisabled(True)
+			self.mainWindow.tabBar.setCurrentWidget(self.mainWindow.downloadView)
+			self.mainWindow.downloadView.model().start()
 
 
 class MainWindow(QMainWindow):
@@ -16,111 +111,68 @@ class MainWindow(QMainWindow):
 
 	def __init__(self):
 		QMainWindow.__init__(self)
-		self.loadSettings()
-		self.initActions()
-		self.initMenus()
-		self.initToolBars()
-		self.initTrayIcon()
-		self.initTabs()
-		self.aboutToQuit.connect(self.writeSettings)
 		self.setWindowTitle("Media Fetcher")
 		self.setWindowIcon(QIcon("../img/icon.png"))
-		self.resize(600, 400)
-
-		# monitor Clipboard
-		QApplication.clipboard().dataChanged.connect(self.clipBoardChanged)
-		if QSystemTrayIcon.isSystemTrayAvailable():
-			self.trayIcon.show()
-
-	def closeEvent(self, event):
-		# http://qt-project.org/doc/qt-5.0/qtwidgets/qwidget.html#closeEvent
-		self.aboutToQuit.emit()
-
-	def writeSettings(self):
-		pass
-
-	def loadSettings(self):
+		self.tray = TrayIcon(self)
 		self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "MediaFetcher", "MediaFetcher")
 		self.settingsPath = QFileInfo(self.settings.fileName()).absolutePath()
 		self.settingsModel = SettingsModel(self.settings)
 		self.settingsDialog = SettingsDialog(self, self.settingsModel)
-		self.mapper = SettingsWidgetMapper(self.settingsModel)
-		self.mapper.setSubmitPolicy(QDataWidgetMapper.AutoSubmit)
-		self.bottomBar = SettingsToolBar(self, self.settingsModel)
-		self.addToolBar(Qt.BottomToolBarArea, self.bottomBar)
+		self.statusBar = SettingsToolBar(self, self.settingsModel)
+		self.addToolBar(Qt.BottomToolBarArea, self.statusBar)
+		self.toolBar = MainToolBar(self)
+		self.addToolBar(Qt.TopToolBarArea, self.toolBar)
+		self.initMenus()
+		self.initTabs()
+
+		self.loadSettings()
+		self.aboutToQuit.connect(self.writeSettings)
+		# monitor Clipboard
+		QApplication.clipboard().dataChanged.connect(self.clipBoardChanged)
+
+	def closeEvent(self, event):
+		# http://qt-project.org/doc/qt-5.0/qtwidgets/qwidget.html#closeEvent
+		# http://qt-project.org/doc/qt-5.0/qtcore/qcoreapplication.html#aboutToQuit
+		self.aboutToQuit.emit()
+
+	def loadSettings(self):
+		self.resize(600, 400)
+
+	def writeSettings(self):
+		pass
 
 	def showSettings(self):
 		self.settingsDialog.open()
 
-	def initActions(self):
-		self.openAction = QAction("&Open Container File", self, shortcut=QKeySequence.Open, triggered=self.open)
-		self.startAction = QAction("&Start Downloads", self, triggered=self.togglePause)
-		self.pauseAction = QAction("&Pause Downloads", self, triggered=self.togglePause)
-		self.statusBarAction = QAction("Statusbar", self, checkable=True, checked=True, triggered=self.toggleStatusBar)
-		self.settingsAction = QAction("Prefere&nces", self, triggered=self.showSettings)
-		self.aboutAction = QAction("About", self, triggered=self.about)
-		self.searchAction = QAction("Search", self, triggered=self.search)
-
-		self.minimizeAction = QAction("Mi&nimize", self, triggered=self.hide)
-		self.maximizeAction = QAction("Ma&ximize", self, triggered=self.showMaximized)
-		self.restoreAction = QAction("&Restore", self, triggered=self.showNormal)
-		self.quitAction = QAction("&Quit", self, shortcut="Ctrl+Q", triggered=self.close)
-
-		self.openAction.setIcon(QIcon.fromTheme("folder-open"))
-		self.startAction.setIcon(QIcon.fromTheme("media-playback-start"))
-		self.pauseAction.setIcon(QIcon.fromTheme("media-playback-pause"))
-		self.settingsAction.setIcon(QIcon.fromTheme("emblem-system"))
-		self.quitAction.setIcon(QIcon.fromTheme("application-exit"))
-		self.searchAction.setIcon(QIcon.fromTheme("system-search"))
-
 	def initMenus(self):
+		# toolbar actions may be set to invisible (exceptions: start, pause), so the main menu can't use these!
+		self.openAction = QAction("&Open Container File", self, shortcut=QKeySequence.Open, triggered=self.open)
+		self.settingsAction = QAction("Prefere&nces", self, triggered=self.showSettings)
+		self.openAction.setIcon(QIcon.fromTheme("folder-open"))
+		self.settingsAction.setIcon(QIcon.fromTheme("emblem-system"))
+
 		self.fileMenu = QMenu("&File", self)
 		self.fileMenu.addAction(self.openAction)
 		self.fileMenu.addSeparator()
-		self.fileMenu.addAction(self.startAction)
-		self.fileMenu.addAction(self.pauseAction)
+		self.fileMenu.addAction(self.toolBar.startAction)
+		self.fileMenu.addAction(self.toolBar.pauseAction)
 		self.fileMenu.addSeparator()
-		self.fileMenu.addAction(self.quitAction)
+		self.fileMenu.addAction(self.tray.quitAction)
 
 		self.editMenu = QMenu("&Edit", self)
 		self.editMenu.addAction(self.settingsAction)
 
 		self.viewMenu = QMenu("&View", self)
-		self.viewMenu.addAction(self.statusBarAction)
+		self.viewMenu.addAction(self.toolBar.toggleViewAction())
+		self.viewMenu.addAction(self.statusBar.toggleViewAction())
 
 		self.helpMenu = QMenu("&Help", self)
-		self.helpMenu.addAction(self.aboutAction)
+		self.helpMenu.addAction(QAction("About", self, triggered=self.about))
 
 		self.menuBar().addMenu(self.fileMenu)
 		self.menuBar().addMenu(self.editMenu)
 		self.menuBar().addMenu(self.viewMenu)
 		self.menuBar().addMenu(self.helpMenu)
-
-	def initToolBars(self):
-		# http://aseigo.blogspot.de/2006/08/sweep-sweep-sweep-ui-floor.html
-		self.searchBar = QLineEdit()
-		self.startButton = QToolButton(self)
-		self.startButton.setDefaultAction(self.startAction)
-		self.toolBar = self.addToolBar("Toolbar")
-		self.toolBar.addAction(self.openAction)
-		self.toolBar.addWidget(self.searchBar)
-		self.toolBar.addAction(self.searchAction)
-		self.toolBar.addWidget(self.startButton)
-		self.toolBar.addAction(self.settingsAction)
-		self.toolBar.setMovable(False)
-
-	def initTrayIcon(self):
-		self.trayIconMenu = QMenu(self)
-		self.trayIconMenu.addAction(self.minimizeAction)
-		self.trayIconMenu.addAction(self.maximizeAction)
-		self.trayIconMenu.addAction(self.restoreAction)
-		self.trayIconMenu.addSeparator()
-		self.trayIconMenu.addAction(self.quitAction)
-
-		self.trayIcon = QSystemTrayIcon(self)
-		self.trayIcon.setIcon(QIcon("../img/icon.png"))
-		self.trayIcon.setContextMenu(self.trayIconMenu)
-		self.trayIcon.activated.connect(self.trayActivated)
 
 	def initTabs(self):
 		self.tabBar = QTabWidget()
@@ -141,15 +193,8 @@ class MainWindow(QMainWindow):
 		self.tabBar.tabBar().tabButton(1, QTabBar.RightSide).resize(0, 0)
 
 	def clipBoardChanged(self):
-		if not QApplication.clipboard().mimeData().hasText():
-			return
-		text = QApplication.clipboard().text()
-		self.search(text)
-
-	def dummy(self):
-		#alert(str(self.downLoadList.getProgress(0)))
-		#alert(str(self.clipBoardList.getQuality(0)))
-		pass
+		if QApplication.clipboard().mimeData().hasText():
+			self.search(QApplication.clipboard().text())
 
 	def open(self):
 		fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.homePath())
@@ -166,29 +211,7 @@ class MainWindow(QMainWindow):
 		#if '//' in text: # contains URL
 		#self.clipboardView.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
 		#self.tabBar.setCurrentWidget(self.clipboardView)
-		pass
-
-	def toggleStatusBar(self):
-		self.bottomBar.show() if self.bottomBar.isHidden() else self.bottomBar.hide()
-
-	def trayActivated(self, reason):
-		if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-			self.showNormal() if self.isHidden() else self.hide()
-
-	def togglePause(self):
-		if self.startButton.defaultAction() == self.pauseAction:
-			self.startButton.removeAction(self.pauseAction)
-			self.startButton.setDefaultAction(self.startAction)
-			self.startAction.setDisabled(False)
-			self.pauseAction.setDisabled(True)
-			self.downloadView.model().pause()
-		else:
-			self.startButton.removeAction(self.startAction)
-			self.startButton.setDefaultAction(self.pauseAction)
-			self.pauseAction.setDisabled(False)
-			self.startAction.setDisabled(True)
-			self.tabBar.setCurrentWidget(self.downloadView)
-			self.downloadView.model().start()
+		print(text)
 
 
 if __name__ == '__main__':

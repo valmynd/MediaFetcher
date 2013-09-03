@@ -1,5 +1,6 @@
 from PySide.QtCore import *
 from PySide.QtGui import *
+import json
 import os
 
 __author__ = "C. Wilhelm"
@@ -13,7 +14,6 @@ class QFolderChooser(QLineEdit):
 		self.button.setText("Browse")
 		self.button.setCursor(Qt.PointingHandCursor)
 		self.button.clicked.connect(self.chooseFolder)
-		self.realText = self.text()
 		self.setStyleSheet("QLineEdit {background: rgb(220,220,220);}")
 
 	def resizeEvent(self, event):
@@ -95,35 +95,116 @@ class SpinBoxAction(QWidgetAction):
 		QWidgetAction.__init__(self, parent)
 		self.settings_key = settings_key
 		self.mapper = mapper
-		self.createWidget2(parent)
-
-	def createMainWidget(self):
-		if self.settings_key == "PoolUpdateFrequency":
-			return QDoubleSpinBox()
-		return QSpinBox()
-
-	def createWidget2(self, parent):
-		# From QT Docs: "When a QToolBar is not a child of a QMainWindow , it looses the ability to populate the
-		# extension pop up with widgets added to the toolbar using QToolBar.addWidget() . Please use widget actions
-		# created by inheriting QWidgetAction and implementing QWidgetAction.createWidget() instead"
-		# -> this would have ment the widgets would be created and removed again and again
-		# -> ditched the hole thing and made a toolbar inside QMainWindow out of it
-		widget = self.createMainWidget()
-		label = self.mapper.map(widget, self.settings_key)
+		self.widget = self.createMainWidget()
+		self.label = self.mapper.map(self.widget, self.settings_key)
+		self.setText(self.label.text().replace(':', ''))
+		self.createToolTips()
 		layout = QHBoxLayout()
 		layout.setContentsMargins(0, 0, 0, 0)
-		layout.addWidget(label)
-		layout.addWidget(widget)
-		widget.setFixedHeight(label.sizeHint().height() + 5)
+		layout.addWidget(self.label)
+		layout.addWidget(self.widget)
+		self.widget.setFixedHeight(self.label.sizeHint().height() + 5)
 		default = QWidget(parent)
 		default.setLayout(layout)
 		default.setParent(parent)
 		self.setDefaultWidget(default)
 
+	def createMainWidget(self):
+		if self.settings_key == "PoolUpdateFrequency":
+			spinbox = QDoubleSpinBox()
+			spinbox.setRange(0.5, 20)
+			spinbox.setSingleStep(0.5)
+			spinbox.setAccelerated(True)
+			spinbox.setDecimals(2)
+			spinbox.setSuffix(" s")
+			return spinbox
+		elif self.settings_key in ("DownloadProcesses", "ExtractionProcesses"):
+			spinbox = QSpinBox()
+			spinbox.setRange(0, 10)
+			spinbox.setSingleStep(1)
+			return spinbox
+		elif self.settings_key == "DownloadSpeedLimit":
+			spinbox = QSpinBox()
+			spinbox.setRange(0, 9990)
+			spinbox.setSingleStep(10)
+			spinbox.setAccelerated(True)
+			spinbox.setSuffix(" kb/s")
+			return spinbox
+		raise Exception("SpinBoxAction: No implementation for %s" % self.settings_key)
 
-class SettingsToolBar(QToolBar):
+	def createToolTips(self):
+		if "Limit" in self.settings_key:
+			self.label.setToolTip("0 := infinite")
+		elif self.settings_key == "PoolUpdateFrequency":
+			self.label.setToolTip("Update progress every n seconds. Higher values may slightly enhance battery life.")
+		elif self.settings_key == "DownloadProcesses":
+			self.label.setToolTip("Number of Download Processes running in the background")
+		elif self.settings_key == "ExtractionProcesses":
+			self.label.setToolTip("Number of Processes extracting Download Links and Metadata from URLs")
+
+
+class ConfigurableToolBar(QToolBar):
+	seperators_between_actions = False
+
+	def __init__(self, title, main_window):
+		QToolBar.__init__(self, title, main_window)
+		#self.setStyleSheet("QToolBar { border: 0px; }")
+		self.settings = main_window.settings
+		main_window.aboutToQuit.connect(self.writeSettings)
+		self.setMovable(False)
+		self.loadSettings()
+
+	def loadSettings(self):
+		self.settings.beginGroup(self.__class__.__name__)
+		visible_actions = self.settings.value("VisibleActions", [a.text() for a in self.actions() if a.text()])
+		if not isinstance(visible_actions, list):
+			visible_actions = json.loads(visible_actions)
+		self.visible_actions = visible_actions
+		self.settings.endGroup()
+
+	def writeSettings(self):
+		self.settings.beginGroup(self.__class__.__name__)
+		visible_columns = []
+		for action in self.actions():
+			if action.text() and action.isVisible():
+				visible_columns.append(action.text())
+		self.settings.setValue("VisibleActions", json.dumps(visible_columns))
+		self.settings.endGroup()
+
+	def contextMenuEvent(self, event):
+		menu = QMenu()
+		for action in self.actions():
+			if action.text():
+				qa = QAction(action.text(), self, checkable=True)
+				qa.setChecked(action.isVisible())
+				qa.toggled.connect(self.toggleAction)
+				menu.addAction(qa)
+		menu.exec_(event.globalPos())
+
+	def toggleAction(self, is_checked):
+		title = self.sender().text()
+		lastseperator = None
+		for action in self.actions():
+			if action.isSeparator():
+				lastseperator = action
+			elif title == action.text():
+				action.setVisible(is_checked)
+				if lastseperator is not None:
+					lastseperator.setVisible(is_checked)
+				return
+
+	def addAction(self, action):
+		visible = action.text() in self.visible_actions
+		action.setVisible(visible)
+		if self.seperators_between_actions:
+			self.addSeparator().setVisible(visible)
+		QToolBar.addAction(self, action)
+
+class SettingsToolBar(ConfigurableToolBar):
+	seperators_between_actions = True
+
 	def __init__(self, main_window, settings_model):
-		QToolBar.__init__(self, main_window)
+		ConfigurableToolBar.__init__(self, "Statusbar", main_window)
 		self.mainWindow = main_window
 		self.label = QLabel("Download Speed: 0 kb/s")
 		self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -132,14 +213,10 @@ class SettingsToolBar(QToolBar):
 		self.settingsModel = settings_model
 		self.mapper = SettingsWidgetMapper(settings_model)
 		self.mapper.setSubmitPolicy(QDataWidgetMapper.AutoSubmit)
+		self.mapper.toFirst()
 
 		self.addWidget(self.label)
-		self.addSeparator()
 		self.addAction(SpinBoxAction(self, self.mapper, "DownloadSpeedLimit"))
-		self.addSeparator()
 		self.addAction(SpinBoxAction(self, self.mapper, "PoolUpdateFrequency"))
-		self.addSeparator()
 		self.addAction(SpinBoxAction(self, self.mapper, "DownloadProcesses"))
-		self.addSeparator()
 		self.addAction(SpinBoxAction(self, self.mapper, "ExtractionProcesses"))
-		self.mapper.toFirst()
