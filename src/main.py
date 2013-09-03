@@ -62,18 +62,19 @@ class MainToolBar(ConfigurableToolBar):
 	def __init__(self, main_window):
 		ConfigurableToolBar.__init__(self, "Toolbar", main_window)
 		self.mainWindow = main_window
+		self.searchBar = SearchBar(callback=main_window.search)
+
 		self.openAction = QAction("&Open Container File", self, triggered=main_window.open)
 		self.startAction = QAction("&Start Downloads", self, triggered=self.togglePause)
 		self.pauseAction = QAction("&Pause Downloads", self, triggered=self.togglePause)
 		self.settingsAction = QAction("Prefere&nces", self, triggered=main_window.showSettings)
-		self.searchAction = QAction("Search Button", self, triggered=main_window.search)
+		self.searchAction = QAction("Search Button", self, triggered=lambda: self.searchBar.returnPressed.emit())
 		self.openAction.setIcon(QIcon.fromTheme("folder-open"))
 		self.startAction.setIcon(QIcon.fromTheme("media-playback-start"))
 		self.pauseAction.setIcon(QIcon.fromTheme("media-playback-pause"))
 		self.settingsAction.setIcon(QIcon.fromTheme("emblem-system"))
 		self.searchAction.setIcon(QIcon.fromTheme("system-search"))
 
-		self.searchBar = SearchBar(callback=main_window.search)
 		self.searchBarAction = QWidgetAction(self)
 		self.searchBarAction.setText("Search Bar")  # make it checkable in the menu of visible actions
 		self.searchBarAction.setDefaultWidget(self.searchBar)
@@ -204,15 +205,17 @@ class MainWindow(QMainWindow):
 	def about(self):
 		QMessageBox.about(self, "About Media Fetcher", "Text")
 
-	def search(self, text=None):
+	def search(self, text):
 		# TODO: ignore/warn/ask when url is already in the clipboard
-		#if text is None:
-		#	text = self.searchBar.text().strip()
-		#if '//' in text: # contains URL
-		#self.clipboardView.addURL("http://www.youtube.com/watch?v=v776jlfm7vE")
-		#self.tabBar.setCurrentWidget(self.clipboardView)
-		print(text)
-
+		text = text.strip()
+		if text == "":
+			return
+		if 'http' in text: # contains URL, still slugish
+			self.clipboardView.addURL(text)
+			self.tabBar.setCurrentWidget(self.clipboardView)
+			return
+		searchwidget = QLabel("placeholder")
+		self.tabBar.addTab(searchwidget, "Search for %s" % text)
 
 if __name__ == '__main__':
 	import sys
