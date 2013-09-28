@@ -20,18 +20,41 @@ class VimeoIE(InfoExtractor):
     _VALID_URL = r'(?P<proto>https?://)?(?:(?:www|player)\.)?vimeo(?P<pro>pro)?\.com/(?:(?:(?:groups|album)/[^/]+)|(?:.*?)/)?(?P<direct_link>play_redirect_hls\?clip_id=)?(?:videos?/)?(?P<id>[0-9]+)(?:[?].*)?$'
     _NETRC_MACHINE = 'vimeo'
     IE_NAME = 'vimeo'
-    _TEST = {
-        'url': 'http://vimeo.com/56015672',
-        'file': '56015672.mp4',
-        'md5': '8879b6cc097e987f02484baf890129e5',
-        'info_dict': {
-            "upload_date": "20121220", 
-            "description": "This is a test case for youtube-dl.\nFor more information, see github.com/rg3/youtube-dl\nTest chars: \u2605 \" ' \u5e78 / \\ \u00e4 \u21ad \U0001d550", 
-            "uploader_id": "user7108434", 
-            "uploader": "Filippo Valsorda", 
-            "title": "youtube-dl test video - \u2605 \" ' \u5e78 / \\ \u00e4 \u21ad \U0001d550"
-        }
-    }
+    _TESTS = [
+        {
+            'url': 'http://vimeo.com/56015672',
+            'file': '56015672.mp4',
+            'md5': '8879b6cc097e987f02484baf890129e5',
+            'info_dict': {
+                "upload_date": "20121220", 
+                "description": "This is a test case for youtube-dl.\nFor more information, see github.com/rg3/youtube-dl\nTest chars: \u2605 \" ' \u5e78 / \\ \u00e4 \u21ad \U0001d550", 
+                "uploader_id": "user7108434", 
+                "uploader": "Filippo Valsorda", 
+                "title": "youtube-dl test video - \u2605 \" ' \u5e78 / \\ \u00e4 \u21ad \U0001d550",
+            },
+        },
+        {
+            'url': 'http://vimeopro.com/openstreetmapus/state-of-the-map-us-2013/video/68093876',
+            'file': '68093876.mp4',
+            'md5': '3b5ca6aa22b60dfeeadf50b72e44ed82',
+            'note': 'Vimeo Pro video (#1197)',
+            'info_dict': {
+                'uploader_id': 'openstreetmapus', 
+                'uploader': 'OpenStreetMap US', 
+                'title': 'Andy Allan - Putting the Carto into OpenStreetMap Cartography',
+            },
+        },
+        {
+            'url': 'http://player.vimeo.com/video/54469442',
+            'file': '54469442.mp4',
+            'md5': '619b811a4417aa4abe78dc653becf511',
+            'note': 'Videos that embed the url in the player page',
+            'info_dict': {
+                'title': 'Kathy Sierra: Building the minimum Badass User, Business of Software',
+                'uploader': 'The BLN & Business of Software',
+            },
+        },
+    ]
 
     def _login(self):
         (username, password) = self._get_login_info()
@@ -83,7 +106,9 @@ class VimeoIE(InfoExtractor):
         video_id = mobj.group('id')
         if not mobj.group('proto'):
             url = 'https://' + url
-        if mobj.group('direct_link') or mobj.group('pro'):
+        elif mobj.group('pro'):
+            url = 'http://player.vimeo.com/video/' + video_id
+        elif mobj.group('direct_link'):
             url = 'https://vimeo.com/' + video_id
 
         # Retrieve video webpage to extract further information
@@ -97,7 +122,8 @@ class VimeoIE(InfoExtractor):
 
         # Extract the config JSON
         try:
-            config = webpage.split(' = {config:')[1].split(',assets:')[0]
+            config = self._search_regex([r' = {config:({.+?}),assets:', r'c=({.+?);'],
+                webpage, 'info section', flags=re.DOTALL)
             config = json.loads(config)
         except:
             if re.search('The creator of this video has not given you permission to embed it on this domain.', webpage):
@@ -117,12 +143,22 @@ class VimeoIE(InfoExtractor):
         video_uploader_id = config["video"]["owner"]["url"].split('/')[-1] if config["video"]["owner"]["url"] else None
 
         # Extract video thumbnail
-        video_thumbnail = config["video"]["thumbnail"]
+        video_thumbnail = config["video"].get("thumbnail")
+        if video_thumbnail is None:
+            _, video_thumbnail = sorted((int(width), t_url) for (width, t_url) in list(config["video"]["thumbs"].items()))[-1]
 
         # Extract video description
-        video_description = get_element_by_attribute("itemprop", "description", webpage)
-        if video_description: video_description = clean_html(video_description)
-        else: video_description = ''
+        video_description = None
+        try:
+            video_description = get_element_by_attribute("itemprop", "description", webpage)
+            if video_description: video_description = clean_html(video_description)
+        except AssertionError as err:
+            # On some pages like (http://player.vimeo.com/video/54469442) the
+            # html tags are not closed, python 2.6 cannot handle it
+            if err.args[0] == 'we should not get here!':
+                pass
+            else:
+                raise
 
         # Extract upload date
         video_upload_date = None
@@ -139,14 +175,15 @@ class VimeoIE(InfoExtractor):
         # TODO bind to format param
         codecs = [('h264', 'mp4'), ('vp8', 'flv'), ('vp6', 'flv')]
         files = { 'hd': [], 'sd': [], 'other': []}
+        config_files = config["video"].get("files") or config["request"].get("files")
         for codec_name, codec_extension in codecs:
-            if codec_name in config["video"]["files"]:
-                if 'hd' in config["video"]["files"][codec_name]:
+            if codec_name in config_files:
+                if 'hd' in config_files[codec_name]:
                     files['hd'].append((codec_name, codec_extension, 'hd'))
-                elif 'sd' in config["video"]["files"][codec_name]:
+                elif 'sd' in config_files[codec_name]:
                     files['sd'].append((codec_name, codec_extension, 'sd'))
                 else:
-                    files['other'].append((codec_name, codec_extension, config["video"]["files"][codec_name][0]))
+                    files['other'].append((codec_name, codec_extension, config_files[codec_name][0]))
 
         for quality in ('hd', 'sd', 'other'):
             if len(files[quality]) > 0:
@@ -158,8 +195,12 @@ class VimeoIE(InfoExtractor):
         else:
             raise ExtractorError('No known codec found')
 
-        video_url = "http://player.vimeo.com/play_redirect?clip_id=%s&sig=%s&time=%s&quality=%s&codecs=%s&type=moogaloop_local&embed_location=" \
-                    %(video_id, sig, timestamp, video_quality, video_codec.upper())
+        video_url = None
+        if isinstance(config_files[video_codec], dict):
+            video_url = config_files[video_codec][video_quality].get("url")
+        if video_url is None:
+            video_url = "http://player.vimeo.com/play_redirect?clip_id=%s&sig=%s&time=%s&quality=%s&codecs=%s&type=moogaloop_local&embed_location=" \
+                        %(video_id, sig, timestamp, video_quality, video_codec.upper())
 
         return [{
             'id':       video_id,

@@ -11,14 +11,14 @@ class VevoIE(InfoExtractor):
     Accepts urls from vevo.com or in the format 'vevo:{id}'
     (currently used by MTVIE)
     """
-    _VALID_URL = r'((http://www.vevo.com/watch/.*?/.*?/)|(vevo:))(?P<id>.*)$'
+    _VALID_URL = r'((http://www.vevo.com/watch/.*?/.*?/)|(vevo:))(?P<id>.*?)(\?|$)'
     _TEST = {
         'url': 'http://www.vevo.com/watch/hurts/somebody-to-die-for/GB1101300280',
         'file': 'GB1101300280.mp4',
         'md5': '06bea460acb744eab74a9d7dcb4bfd61',
         'info_dict': {
-            "upload_date": "20130624", 
-            "uploader": "Hurts", 
+            "upload_date": "20130624",
+            "uploader": "Hurts",
             "title": "Somebody to Die For"
         }
     }

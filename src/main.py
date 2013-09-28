@@ -5,7 +5,7 @@ from models.settingsmodel import SettingsModel
 from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
 from views.settingsview import SettingsDialog, SettingsToolBar, ConfigurableToolBar
-from plugins import *
+import re
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
@@ -48,11 +48,14 @@ class SearchBar(QLineEdit):
 		self.textChanged.connect(self.toggleButton)
 		if callback is not None:
 			self.returnPressed.connect(lambda: callback(self.text()))
+		#self.setFixedHeight(28)
+		self.setPlaceholderText(" < Search Term or URL >")
 
 	def resizeEvent(self, event):
 		self.button.setStyleSheet("QToolButton {margin: 0 0 0 0; border: 0px;}")
-		x = self.size().width() - self.button.sizeHint().width()
-		self.button.move(x, 0)
+		x = self.size().width() - self.button.sizeHint().width() - 2
+		y = (self.size().height() + 1 - self.button.sizeHint().height()) / 2
+		self.button.move(x, y)
 
 	def toggleButton(self):
 		self.button.setVisible(bool(self.text()))
@@ -175,27 +178,32 @@ class MainWindow(QMainWindow):
 		self.menuBar().addMenu(self.viewMenu)
 		self.menuBar().addMenu(self.helpMenu)
 
+	def addTab(self, widget, label, closable=True):
+		i = self.tabBar.count()
+		self.tabBar.addTab(widget, " %s " % label if not closable else label)
+		button = self.tabBar.tabBar().tabButton(i, QTabBar.RightSide)
+		button.setStyleSheet("QToolButton {margin: 0; padding: 0;}")
+		if not closable:
+			button.setFixedWidth(0)
+		self.tabBar.setCurrentIndex(i)
+
 	def initTabs(self):
 		self.tabBar = QTabWidget()
 		self.setCentralWidget(self.tabBar)
-
+		self.tabBar.setTabsClosable(True)
+		appropriate_height = QLineEdit().sizeHint().height()
+		self.tabBar.setStyleSheet("QTabBar::tab {height: %spx;}" % appropriate_height)
+		self.tabBar.tabCloseRequested.connect(lambda i: self.tabBar.removeTab(i))
 		# Downloads Tab
 		self.downloadView = DownloadView(self, self.settings)
-		self.tabBar.addTab(self.downloadView, "Downloads")
-
+		self.addTab(self.downloadView, "Downloads", closable=False)
 		# Clipboard Tab
 		self.clipboardView = ClipBoardView(self, self.settings, self.downloadView)
-		self.tabBar.addTab(self.clipboardView, "Clipboard")
-		self.tabBar.setCurrentIndex(1)
-
-		# Close Button for all Tabs except Downloads, Clipboard
-		self.tabBar.setTabsClosable(True)
-		self.tabBar.tabBar().tabButton(0, QTabBar.RightSide).resize(0, 0)
-		self.tabBar.tabBar().tabButton(1, QTabBar.RightSide).resize(0, 0)
+		self.addTab(self.clipboardView, "Clipboard", closable=False)
 
 	def clipBoardChanged(self):
 		if QApplication.clipboard().mimeData().hasText():
-			self.search(QApplication.clipboard().text())
+			self.addURL(QApplication.clipboard().text())
 
 	def open(self):
 		fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.homePath())
@@ -205,17 +213,21 @@ class MainWindow(QMainWindow):
 	def about(self):
 		QMessageBox.about(self, "About Media Fetcher", "Text")
 
-	def search(self, text):
+	def addURL(self, url):
 		# TODO: ignore/warn/ask when url is already in the clipboard
+		for url in re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+])+', url):
+			self.clipboardView.addURL(url)
+			self.tabBar.setCurrentWidget(self.clipboardView)
+
+	def search(self, text):
 		text = text.strip()
 		if text == "":
 			return
-		if 'http' in text: # contains URL, still slugish
-			self.clipboardView.addURL(text)
-			self.tabBar.setCurrentWidget(self.clipboardView)
-			return
+		if 'http' in text:
+			return self.addURL(text)
 		searchwidget = QLabel("placeholder")
-		self.tabBar.addTab(searchwidget, "Search for %s" % text)
+		self.addTab(searchwidget, "Search for %s" % text)
+
 
 if __name__ == '__main__':
 	import sys

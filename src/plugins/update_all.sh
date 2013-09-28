@@ -1,5 +1,5 @@
 ## TODO: plugin manager within the GUI
-touch __init__.py
+#touch __init__.py
 # http://pyload.org/ TODO: python3, paths
 #wget -O tmp.zip http://get.pyload.org/get/src/
 #unzip tmp.zip

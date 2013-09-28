@@ -12,8 +12,8 @@ class C56IE(InfoExtractor):
 
     _TEST ={
         'url': 'http://www.56.com/u39/v_OTM0NDA3MTY.html',
-        'file': '93440716.mp4',
-        'md5': '9dc07b5c8e978112a6441f9e75d2b59e',
+        'file': '93440716.flv',
+        'md5': 'e59995ac63d0457783ea05f93f12a866',
         'info_dict': {
             'title': '网事知多少 第32期：车怒',
         },

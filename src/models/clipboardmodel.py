@@ -1,16 +1,11 @@
 from .modelbase import *
 from PySide.QtGui import QComboBox
 from core.clipboardpool import ClipBoardPool
-import tempfile
-import os
+import json
 import re
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
-
-thumbnail_path = os.path.join(tempfile.gettempdir(), "mediafetcher_thumbnails")
-if not os.path.exists(thumbnail_path):
-	os.mkdir(thumbnail_path)
 
 
 class ClipBoardModel(QueueModel):
@@ -33,26 +28,17 @@ class ClipBoardModel(QueueModel):
 			# each row gets one combobox for the extension and one for the quality options
 			format_combobox = QComboBox()   # see ComboBoxDelegate.createEditor()
 			quality_combobox = QComboBox()  # see ComboBoxDelegate.createEditor()
-			# get selected extension -> fallback: take the first which got parsed from XML
-			selected_extension = element.get("selected")
-			if selected_extension is None:
-				element.attrib["selected"] = element.find("format").attrib["extension"]
-				selected_extension = element.attrib["selected"]
-			# get selected quality; TODO: make default-fallback configurable
-			selected_format = element.find("format[@extension='%s']" % selected_extension)
-			selected_quality = selected_format.get("selected")
-			if selected_quality is None:
-				selected_format.attrib["selected"] = selected_format.find("option").attrib["quality"]
-				selected_quality = selected_format.attrib["selected"]
-			# initialize combobox widgets
-			for format in element.findall("format"):
-				format_combobox.addItem(format.get("extension"))
-			format_combobox.setCurrentIndex(format_combobox.findText(selected_extension))
-			for option in element.findall("format[@extension='%s']/option" % selected_extension):
-				quality_combobox.addItem(option.get("quality"))
-			quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
 			self.combo_boxes_format[element] = format_combobox
 			self.combo_boxes_quality[element] = quality_combobox
+			selected_extension = self.getSelectedExtension(element)
+			selected_quality = self.getSelectedQuality(element, selected_extension)
+			for format in element.findall("format"):
+				format_combobox.addItem(format.get("extension"))
+			for option in element.findall("format[@extension='%s']/option" % selected_extension):
+				quality_combobox.addItem(option.get("quality"))
+			format_combobox.setCurrentIndex(format_combobox.findText(selected_extension))
+			quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
+
 			# setup defaults for path and filename
 			if "path" not in element.attrib:
 				path = self.settings.value("DefaultDownloadFolder")
@@ -63,6 +49,35 @@ class ClipBoardModel(QueueModel):
 				# quality and extension will most probably change until then
 				mapping = dict(title=element.get("title"), url=element.get("url"), host=element.get("host"))
 				element.attrib["filename"] = fill_filename_template(filename, mapping)
+
+	def getSelectedExtension(self, element):
+		format_priorities = json.loads(self.settings.value("PreferredExtensionOrder"))
+		selected_extension = element.get("selected")
+		if selected_extension is None:  # fallback1: get first found item from priority list
+			for preferred_extension in format_priorities:
+				found = element.find("format[@extension='%s']" % preferred_extension)
+				if found is not None:
+					selected_extension = found.attrib["extension"]
+					break
+			if selected_extension is None:  # fallback 2: get first format which got parsed from XML
+				selected_extension = element.find("format").attrib["extension"]
+			element.attrib["selected"] = selected_extension
+		return selected_extension
+
+	def getSelectedQuality(self, element, selected_extension):
+		quality_priorities = json.loads(self.settings.value("PreferredQualityOrder"))
+		selected_format = element.find("format[@extension='%s']" % selected_extension)
+		selected_quality = selected_format.get("selected")
+		if selected_quality is None:  # fallback1: get first found item from priority list
+			for preferred_quality in quality_priorities:
+				found = selected_format.find("option[@quality='%s']" % preferred_quality)
+				if found is not None:
+					selected_quality = found.attrib["quality"]
+					break
+			if selected_quality is None:  # fallback 2: get first format which got parsed from XML
+				selected_quality = selected_format.find("option").attrib["quality"]
+			selected_format.attrib["selected"] = selected_quality
+		return selected_quality
 
 	def addURL(self, url):
 		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """

@@ -43,7 +43,7 @@ class DownloadModel(QueueModel):
 			self.option_elements[element] = option
 			# fill remaining filename template, extension and quality shall not change within DownloadModel
 			mapping = dict(title=element.get("title"), url=element.get("url"), host=element.get("host"),
-								extension=selected_extension, quality=selected_quality)
+			               extension=selected_extension, quality=selected_quality)
 			element.attrib["filename"] = fill_filename_template(element.attrib["filename"], mapping)
 
 	def data(self, index, role):
@@ -66,7 +66,7 @@ class DownloadModel(QueueModel):
 			option = self.option_elements[item]
 			#self.pool.apply_async(func=download, args=args)
 			self.pool.add_task(item.get("url"), item.get("path"), item.get("filename"),
-									 option.get("download_url"), option.get("download_url"))
+			                   option.get("download_url"), option.get("download_url"))
 
 	def pause(self):
 		pass

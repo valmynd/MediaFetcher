@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
+import email.utils
 import errno
 import gzip
 import io
 import json
 import locale
 import os
+import platform
 import re
+import socket
 import sys
 import traceback
 import zlib
-import email.utils
-import socket
-import datetime
 
 try:
     import urllib.request as compat_urllib_request
@@ -59,6 +60,17 @@ try:
     import http.client as compat_http_client
 except ImportError: # Python 2
     import http.client as compat_http_client
+
+try:
+    from urllib.error import HTTPError as compat_HTTPError
+except ImportError:  # Python 2
+    from urllib.error import HTTPError as compat_HTTPError
+
+try:
+    from urllib.request import urlretrieve as compat_urlretrieve
+except ImportError:  # Python 2
+    from urllib.request import urlretrieve as compat_urlretrieve
+
 
 try:
     from subprocess import DEVNULL
@@ -207,7 +219,7 @@ if sys.version_info >= (2,7):
     def find_xpath_attr(node, xpath, key, val):
         """ Find the xpath xpath[@key=val] """
         assert re.match(r'^[a-zA-Z]+$', key)
-        assert re.match(r'^[a-zA-Z@\s]*$', val)
+        assert re.match(r'^[a-zA-Z0-9@\s]*$', val)
         expr = xpath + "[@%s='%s']" % (key, val)
         return node.find(expr)
 else:
@@ -243,7 +255,17 @@ def htmlentity_transform(matchobj):
     return ('&%s;' % entity)
 
 compat_html_parser.locatestarttagend = re.compile(r"""<[a-zA-Z][-.a-zA-Z0-9:_]*(?:\s+(?:(?<=['"\s])[^\s/>][^\s/=>]*(?:\s*=+\s*(?:'[^']*'|"[^"]*"|(?!['"])[^>\s]*))?\s*)*)?\s*""", re.VERBOSE) # backport bugfix
-class AttrParser(compat_html_parser.HTMLParser):
+class BaseHTMLParser(compat_html_parser.HTMLParser):
+    def __init(self):
+        compat_html_parser.HTMLParser.__init__(self)
+        self.html = None
+
+    def loads(self, html):
+        self.html = html
+        self.feed(html)
+        self.close()
+
+class AttrParser(BaseHTMLParser):
     """Modified HTMLParser that isolates a tag with the specified attribute"""
     def __init__(self, attribute, value):
         self.attribute = attribute
@@ -251,10 +273,9 @@ class AttrParser(compat_html_parser.HTMLParser):
         self.result = None
         self.started = False
         self.depth = {}
-        self.html = None
         self.watch_startpos = False
         self.error_count = 0
-        compat_html_parser.HTMLParser.__init__(self)
+        BaseHTMLParser.__init__(self)
 
     def error(self, message):
         if self.error_count > 10 or self.started:
@@ -262,11 +283,6 @@ class AttrParser(compat_html_parser.HTMLParser):
         self.rawdata = '\n'.join(self.html.split('\n')[self.getpos()[0]:]) # skip one line
         self.error_count += 1
         self.goahead(1)
-
-    def loads(self, html):
-        self.html = html
-        self.feed(html)
-        self.close()
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -322,6 +338,38 @@ def get_element_by_id(id, html):
 def get_element_by_attribute(attribute, value, html):
     """Return the content of the tag with the specified attribute in the passed HTML document"""
     parser = AttrParser(attribute, value)
+    try:
+        parser.loads(html)
+    except compat_html_parser.HTMLParseError:
+        pass
+    return parser.get_result()
+
+class MetaParser(BaseHTMLParser):
+    """
+    Modified HTMLParser that isolates a meta tag with the specified name 
+    attribute.
+    """
+    def __init__(self, name):
+        BaseHTMLParser.__init__(self)
+        self.name = name
+        self.content = None
+        self.result = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag != 'meta':
+            return
+        attrs = dict(attrs)
+        if attrs.get('name') == self.name:
+            self.result = attrs.get('content')
+
+    def get_result(self):
+        return self.result
+
+def get_meta_content(name, html):
+    """
+    Return the content attribute from the meta tag with the given name attribute.
+    """
+    parser = MetaParser(name)
     try:
         parser.loads(html)
     except compat_html_parser.HTMLParseError:
@@ -489,7 +537,7 @@ def make_HTTPS_handler(opts):
 
 class ExtractorError(Exception):
     """Error during info extraction."""
-    def __init__(self, msg, tb=None, expected=False):
+    def __init__(self, msg, tb=None, expected=False, cause=None):
         """ tb, if given, is the original traceback (so that it can be printed out).
         If expected is set, this is a normal error message and most likely not a bug in youtube-dl.
         """
@@ -502,6 +550,7 @@ class ExtractorError(Exception):
 
         self.traceback = tb
         self.exc_info = sys.exc_info()  # preserve original exception
+        self.cause = cause
 
     def format_traceback(self):
         if self.traceback is None:
@@ -622,8 +671,23 @@ class YoutubeDLHandler(compat_urllib_request.HTTPHandler):
         old_resp = resp
         # gzip
         if resp.headers.get('Content-encoding', '') == 'gzip':
-            gz = gzip.GzipFile(fileobj=io.BytesIO(resp.read()), mode='r')
-            resp = self.addinfourl_wrapper(gz, old_resp.headers, old_resp.url, old_resp.code)
+            content = resp.read()
+            gz = gzip.GzipFile(fileobj=io.BytesIO(content), mode='rb')
+            try:
+                uncompressed = io.BytesIO(gz.read())
+            except IOError as original_ioerror:
+                # There may be junk add the end of the file
+                # See http://stackoverflow.com/q/4928560/35070 for details
+                for i in range(1, 1024):
+                    try:
+                        gz = gzip.GzipFile(fileobj=io.BytesIO(content[:-i]), mode='rb')
+                        uncompressed = io.BytesIO(gz.read())
+                    except IOError:
+                        continue
+                    break
+                else:
+                    raise original_ioerror
+            resp = self.addinfourl_wrapper(uncompressed, old_resp.headers, old_resp.url, old_resp.code)
             resp.msg = old_resp.msg
         # deflate
         if resp.headers.get('Content-encoding', '') == 'deflate':
@@ -642,7 +706,16 @@ def unified_strdate(date_str):
     date_str = date_str.replace(',',' ')
     # %z (UTC offset) is only supported in python>=3.2
     date_str = re.sub(r' (\+|-)[\d]*$', '', date_str)
-    format_expressions = ['%d %B %Y', '%B %d %Y', '%b %d %Y', '%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d %H:%M:%S', '%d.%m.%Y %H:%M']
+    format_expressions = [
+        '%d %B %Y',
+        '%B %d %Y',
+        '%b %d %Y',
+        '%Y-%m-%d',
+        '%d/%m/%Y',
+        '%Y/%m/%d %H:%M:%S',
+        '%d.%m.%Y %H:%M',
+        '%Y-%m-%dT%H:%M:%SZ',
+    ]
     for expression in format_expressions:
         try:
             upload_date = datetime.datetime.strptime(date_str, expression).strftime('%Y%m%d')
@@ -656,6 +729,9 @@ def determine_ext(url, default_ext='unknown_video'):
         return guess
     else:
         return default_ext
+
+def subtitles_filename(filename, sub_lang, sub_format):
+    return filename.rsplit('.', 1)[0] + '.' + sub_lang + '.' + sub_format
 
 def date_from_str(date_str):
     """
@@ -708,3 +784,43 @@ class DateRange(object):
         return self.start <= date <= self.end
     def __str__(self):
         return '%s - %s' % ( self.start.isoformat(), self.end.isoformat())
+
+
+def platform_name():
+    """ Returns the platform name as a compat_str """
+    res = platform.platform()
+    if isinstance(res, bytes):
+        res = res.decode(preferredencoding())
+
+    assert isinstance(res, compat_str)
+    return res
+
+
+def write_string(s, out=None):
+    if out is None:
+        out = sys.stderr
+    assert type(s) == type('')
+
+    if ('b' in getattr(out, 'mode', '') or
+            sys.version_info[0] < 3):  # Python 2 lies about mode of sys.stderr
+        s = s.encode(preferredencoding(), 'ignore')
+    out.write(s)
+    out.flush()
+
+
+def bytes_to_intlist(bs):
+    if not bs:
+        return []
+    if isinstance(bs[0], int):  # Python 3
+        return list(bs)
+    else:
+        return [ord(c) for c in bs]
+
+
+def intlist_to_bytes(xs):
+    if not xs:
+        return b''
+    if isinstance(chr(0), bytes):  # Python 2
+        return ''.join([chr(x) for x in xs])
+    else:
+        return bytes(xs)

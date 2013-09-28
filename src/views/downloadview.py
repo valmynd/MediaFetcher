@@ -58,8 +58,7 @@ class DownloadView(QueueTreeView):
 	def openFolder(self):
 		for element in [index.internalPointer() for index in self.selectionModel().selectedRows()]:
 			path = element.get("path")
-			if path is not None:
-				Popen(["xdg-open", path])
+			QDesktopServices.openUrl(path)
 
 	def pauseSelected(self):
 		pass

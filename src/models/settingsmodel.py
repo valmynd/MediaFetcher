@@ -11,12 +11,12 @@ class SettingsModel(QAbstractTableModel):
 	"""
 
 	_entries = OrderedDict((
-		("DefaultDownloadFolder", "Default Download Folder:"),
-		("DefaultFileName", "Default File Name:"),
-		("DownloadSpeedLimit", "Download Speed Limit:"),
-		("PoolUpdateFrequency", "Update Interval:"),
-		("DownloadProcesses", "Download Processes:"),
-		("ExtractionProcesses", "Extraction Processes:"),
+	("DefaultDownloadFolder", "Default Download Folder:"),
+	("DefaultFileName", "Default File Name:"),
+	("DownloadSpeedLimit", "Download Speed Limit:"),
+	("PoolUpdateFrequency", "Update Interval:"),
+	("DownloadProcesses", "Download Processes:"),
+	("ExtractionProcesses", "Extraction Processes:"),
 	))
 
 	def __init__(self, qsettings_object):
@@ -26,11 +26,20 @@ class SettingsModel(QAbstractTableModel):
 		self.initDefaults()
 
 	def initDefaults(self):
+		keys = self.settings.childKeys()
 		folder = self.settings.value("DefaultDownloadFolder")
 		if folder is None or not os.access(folder, os.W_OK):
 			self.settings.setValue("DefaultDownloadFolder", os.path.join(QDir.homePath(), "Downloads"))
-		if self.settings.value("DefaultFileName") is None:
-			self.settings.setValue("DefaultFileName", "%Title%.%HOST%.%extension%")
+		if "DefaultFileName" not in keys:
+			self.settings.setValue("DefaultFileName", "%Title%.%extension%")
+		if "DownloadSpeedLimit" not in keys:
+			self.settings.setValue("DownloadSpeedLimit", 0)
+		if "PoolUpdateFrequency" not in keys:
+			self.settings.setValue("PoolUpdateFrequency", 1)
+		if "DownloadProcesses" not in keys:
+			self.settings.setValue("DownloadProcesses", 4)
+		if "ExtractionProcesses" not in keys:
+			self.settings.setValue("ExtractionProcesses", 2)
 
 	def rowCount(self, parent):
 		return 1
@@ -52,7 +61,7 @@ class SettingsModel(QAbstractTableModel):
 			return False
 		num_col = index.column()
 		key = self._keys[num_col]
-		#print(key, value)
+		#print(key, value) # TODO: apply changes on the models!!!
 		self.settings.setValue(key, value)
 		self.dataChanged.emit(index, index)
 		return True

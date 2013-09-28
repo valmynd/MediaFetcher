@@ -6,9 +6,9 @@ ___license___ = "GPL v3"
 
 
 class ComboBoxDelegate(QStyledItemDelegate):
-	def __init__(self, parent_widget, model):
-		QStyledItemDelegate.__init__(self, parent_widget)
-		self._model = model
+	def __init__(self, clipboard_view, clipboard_model):
+		QStyledItemDelegate.__init__(self, clipboard_view)
+		self._model = clipboard_model
 
 	def createEditor(self, parent_widget, option, index):
 		num_col = index.column()
@@ -29,11 +29,13 @@ class ComboBoxDelegate(QStyledItemDelegate):
 		format_combobox = self._model.combo_boxes_format[element]
 		quality_combobox = self._model.combo_boxes_quality[element]
 		selected_extension = format_combobox.currentText()
+		selected_quality = self._model.getSelectedQuality(element, selected_extension)
 		element.set("selected", selected_extension)
 		# override combobox-items with the quality options avaiable currently selected extension
 		quality_combobox.clear()
 		for option in element.findall("format[@extension='" + selected_extension + "']/option"):
 			quality_combobox.addItem(option.get("quality"))
+		quality_combobox.setCurrentIndex(quality_combobox.findText(selected_quality))
 
 	def _quality_changed(self, element):
 		quality_combobox = self._model.combo_boxes_quality[element]
@@ -53,7 +55,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 class ClipBoardView(QueueTreeView):
 	_ignored_columns = ['Url', 'Thumbnail', 'Description', 'Progress']
-	_visible_columns = ['Title', 'Host', 'Status', 'Extension', 'Quality']  # excluded: ['Path', 'Filename']
+	_visible_columns = ['Filename', 'Host', 'Status', 'Extension', 'Quality']  # excluded: ['Path', 'Filename']
 
 	def __init__(self, main_window, settings, download_view):
 		QueueTreeView.__init__(self, main_window, settings, ClipBoardModel(main_window, settings))

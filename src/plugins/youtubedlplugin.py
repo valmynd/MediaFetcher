@@ -49,6 +49,8 @@ class YoutubeDLPlugin(Plugin):
 				# extract relevant Download Options
 				extension = entry['ext']
 				quality = re.sub(r'^[0-9]+\s-\s', '', entry.get('format'))
+				if "x" in quality:  # shall end up something like "720p"
+					quality = quality[:quality.find("x")] + "p"
 				optn = Element('option', quality=quality,
 									download_url=str(entry.get('url')),
 									location=str(entry.get('location')),
@@ -67,13 +69,13 @@ class YoutubeDLPlugin(Plugin):
 	def download(self, url, path, filename, download_url, player_url):
 		fdl = FileDownloader(self.ydl, self.ydl.params)
 		info_dict = {
-			'url': download_url,
-			'player_url': player_url,
-			'page_url': url,
-			#'play_path': None,
-			#'tc_url': None,
-			#'urlhandle': None,
-			#'user_agent': None,
+		'url': download_url,
+		'player_url': player_url,
+		'page_url': url,
+		#'play_path': None,
+		#'tc_url': None,
+		#'urlhandle': None,
+		#'user_agent': None,
 		}
 		fdl.add_progress_hook(lambda d: self.send_result(url, d)) # TODO: handle interrupt
 		filepath = os.path.join(path, filename)

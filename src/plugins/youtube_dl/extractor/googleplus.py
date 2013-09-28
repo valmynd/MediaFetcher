@@ -40,7 +40,8 @@ class GooglePlusIE(InfoExtractor):
         self.report_extraction(video_id)
 
         # Extract update date
-        upload_date = self._html_search_regex('title="Timestamp">(.*?)</a>',
+        upload_date = self._html_search_regex(
+            ['title="Timestamp">(.*?)</a>', r'<a.+?class="g-M.+?>(.+?)</a>'],
             webpage, 'upload date', fatal=False)
         if upload_date:
             # Convert timestring to a format suitable for filename
@@ -57,8 +58,8 @@ class GooglePlusIE(InfoExtractor):
             webpage, 'title', default='NA')
 
         # Step 2, Simulate clicking the image box to launch video
-        DOMAIN = 'https://plus.google.com'
-        video_page = self._search_regex(r'<a href="((?:%s)?/photos/.*?)"' % re.escape(DOMAIN),
+        DOMAIN = 'https://plus.google.com/'
+        video_page = self._search_regex(r'<a href="((?:%s)?photos/.*?)"' % re.escape(DOMAIN),
             webpage, 'video page URL')
         if not video_page.startswith(DOMAIN):
             video_page = DOMAIN + video_page

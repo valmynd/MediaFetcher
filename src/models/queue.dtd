@@ -1,50 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!ELEMENT queue (task*, item*, package*)>
-<!ELEMENT task EMPTY>
-<!ATTLIST task
-	url CDATA #REQUIRED
-	status CDATA #REQUIRED
->
-<!ELEMENT item (subtitle*, format+)>
-<!ATTLIST item
-	title CDATA #REQUIRED
-	url CDATA #REQUIRED
-	status CDATA #REQUIRED
-	host CDATA #IMPLIED
-	description CDATA #IMPLIED
-	thumbnail CDATA #IMPLIED
-	path CDATA #IMPLIED
-	filename CDATA #IMPLIED
-	selected CDATA #IMPLIED
->
-<!ELEMENT package (item+)>
-<!ATTLIST package
-	name CDATA #REQUIRED
->
-<!ATTLIST item
-	title CDATA #REQUIRED
-	url CDATA #REQUIRED
-	status CDATA #REQUIRED
-	host CDATA #IMPLIED
-	description CDATA #IMPLIED
-	thumbnail CDATA #IMPLIED
-	path CDATA #IMPLIED
-	filename CDATA #IMPLIED
-	selected CDATA #IMPLIED
->
-<!ELEMENT subtitle EMPTY>
-<!ATTLIST subtitle
-	language CDATA #REQUIRED
-	url CDATA #IMPLIED
->
-<!ELEMENT format (option+)>
-<!ATTLIST format
-	extension CDATA #REQUIRED
-	selected CDATA #IMPLIED
->
-<!ELEMENT option EMPTY>
-<!ATTLIST option
-	quality CDATA #REQUIRED
-	download_url CDATA #REQUIRED
-	player_url CDATA #IMPLIED
->
+        <!ELEMENT queue (task*, item*, package*)>
+        <!ELEMENT task EMPTY>
+        <!ATTLIST task
+                url CDATA #REQUIRED
+                status CDATA #REQUIRED
+                >
+        <!ELEMENT item (subtitle*, format+)>
+        <!ATTLIST item
+                title CDATA #REQUIRED
+                url CDATA #REQUIRED
+                status CDATA #REQUIRED
+                host CDATA #IMPLIED
+                description CDATA #IMPLIED
+                thumbnail CDATA #IMPLIED
+                path CDATA #IMPLIED
+                filename CDATA #IMPLIED
+                selected CDATA #IMPLIED
+                >
+        <!ELEMENT package (item+)>
+        <!ATTLIST package
+                name CDATA #REQUIRED
+                >
+        <!ATTLIST item
+                title CDATA #REQUIRED
+                url CDATA #REQUIRED
+                status CDATA #REQUIRED
+                host CDATA #IMPLIED
+                description CDATA #IMPLIED
+                thumbnail CDATA #IMPLIED
+                path CDATA #IMPLIED
+                filename CDATA #IMPLIED
+                selected CDATA #IMPLIED
+                >
+        <!ELEMENT subtitle EMPTY>
+        <!ATTLIST subtitle
+                language CDATA #REQUIRED
+                url CDATA #IMPLIED
+                >
+        <!ELEMENT format (option+)>
+        <!ATTLIST format
+                extension CDATA #REQUIRED
+                selected CDATA #IMPLIED
+                >
+        <!ELEMENT option EMPTY>
+        <!ATTLIST option
+                quality CDATA #REQUIRED
+                download_url CDATA #REQUIRED
+                player_url CDATA #IMPLIED
+                >

@@ -7,11 +7,11 @@ from .common import InfoExtractor
 class HotNewHipHopIE(InfoExtractor):
     _VALID_URL = r'http://www\.hotnewhiphop.com/.*\.(?P<id>.*)\.html'
     _TEST = {
-        'url': "http://www.hotnewhiphop.com/freddie-gibbs-lay-it-down-song.1435540.html'",
+        'url': "http://www.hotnewhiphop.com/freddie-gibbs-lay-it-down-song.1435540.html",
         'file': '1435540.mp3',
         'md5': '2c2cd2f76ef11a9b3b581e8b232f3d96',
         'info_dict': {
-            "title": "Freddie Gibbs Songs - Lay It Down"
+            "title": "Freddie Gibbs - Lay It Down"
         }
     }
 

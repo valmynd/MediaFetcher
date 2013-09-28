@@ -1,13 +1,23 @@
 # coding: utf-8
 
+import collections
+import errno
+import io
+import itertools
 import json
-import netrc
+import os.path
 import re
 import socket
-import itertools
+import string
+import struct
+import traceback
+import xml.etree.ElementTree
+import zlib
 
 from .common import InfoExtractor, SearchInfoExtractor
+from .subtitles import SubtitlesInfoExtractor
 from ..utils import (
+    compat_chr,
     compat_http_client,
     compat_parse_qs,
     compat_urllib_error,
@@ -21,6 +31,7 @@ from ..utils import (
     unescapeHTML,
     unified_strdate,
     orderedSet,
+    write_json_file,
 )
 
 class YoutubeBaseInfoExtractor(InfoExtractor):
@@ -130,42 +141,67 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
             return
         self._confirm_age()
 
-class YoutubeIE(YoutubeBaseInfoExtractor):
+
+class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
     IE_DESC = 'YouTube.com'
     _VALID_URL = r"""^
                      (
                          (?:https?://)?                                       # http(s):// (optional)
-                         (?:youtu\.be/|(?:\w+\.)?youtube(?:-nocookie)?\.com/|
-                            tube\.majestyc\.net/)                             # the various hostnames, with wildcard subdomains
+                         (?:(?:(?:(?:\w+\.)?youtube(?:-nocookie)?\.com/|
+                            tube\.majestyc\.net/|
+                            youtube\.googleapis\.com/)                        # the various hostnames, with wildcard subdomains
                          (?:.*?\#/)?                                          # handle anchor (#/) redirect urls
                          (?:                                                  # the various things that can precede the ID:
                              (?:(?:v|embed|e)/)                               # v/ or embed/ or e/
                              |(?:                                             # or the v= param in all its forms
-                                 (?:watch|movie(?:_popup)?(?:\.php)?)?              # preceding watch(_popup|.php) or nothing (like /?v=xxxx)
+                                 (?:(?:watch|movie)(?:_popup)?(?:\.php)?)?    # preceding watch(_popup|.php) or nothing (like /?v=xxxx)
                                  (?:\?|\#!?)                                  # the params delimiter ? or # or #!
                                  (?:.*?&)?                                    # any other preceding param (like /?s=tuff&v=xxxx)
                                  v=
                              )
-                         )?                                                   # optional -> youtube.com/xxxx is OK
+                         ))
+                         |youtu\.be/                                          # just youtu.be/xxxx
+                         )
                      )?                                                       # all until now is optional -> you can pass the naked ID
-                     ([0-9A-Za-z_-]+)                                         # here is it! the YouTube video ID
+                     ([0-9A-Za-z_-]{11})                                      # here is it! the YouTube video ID
                      (?(1).+)?                                                # if we found the ID, everything can follow
                      $"""
     _NEXT_URL_RE = r'[\?&]next_url=([^&]+)'
     # Listed in order of quality
-    _available_formats = ['38', '37', '46', '22', '45', '35', '44', '34', '18', '43', '6', '5', '17', '13',
-                          '95', '94', '93', '92', '132', '151',
+    _available_formats = ['38', '37', '46', '22', '45', '35', '44', '34', '18', '43', '6', '5', '36', '17', '13',
+                          # Apple HTTP Live Streaming
+                          '96', '95', '94', '93', '92', '132', '151',
+                          # 3D
                           '85', '84', '102', '83', '101', '82', '100',
+                          # Dash video
+                          '138', '137', '248', '136', '247', '135', '246',
+                          '245', '244', '134', '243', '133', '242', '160',
+                          # Dash audio
+                          '141', '172', '140', '171', '139',
                           ]
-    _available_formats_prefer_free = ['38', '46', '37', '45', '22', '44', '35', '43', '34', '18', '6', '5', '17', '13',
-                                      '95', '94', '93', '92', '132', '151',
+    _available_formats_prefer_free = ['38', '46', '37', '45', '22', '44', '35', '43', '34', '18', '6', '5', '36', '17', '13',
+                                      # Apple HTTP Live Streaming
+                                      '96', '95', '94', '93', '92', '132', '151',
+                                      # 3D
                                       '85', '102', '84', '101', '83', '100', '82',
+                                      # Dash video
+                                      '138', '248', '137', '247', '136', '246', '245',
+                                      '244', '135', '243', '134', '242', '133', '160',
+                                      # Dash audio
+                                      '172', '141', '171', '140', '139',
                                       ]
+    _video_formats_map = {
+        'flv': ['35', '34', '6', '5'],
+        '3gp': ['36', '17', '13'],
+        'mp4': ['38', '37', '22', '18'],
+        'webm': ['46', '45', '44', '43'],
+    }
     _video_extensions = {
         '13': '3gp',
-        '17': 'mp4',
+        '17': '3gp',
         '18': 'mp4',
         '22': 'mp4',
+        '36': '3gp',
         '37': 'mp4',
         '38': 'mp4',
         '43': 'webm',
@@ -181,8 +217,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         '100': 'webm',
         '101': 'webm',
         '102': 'webm',
-        
-        # videos that use m3u8
+
+        # Apple HTTP Live Streaming
         '92': 'mp4',
         '93': 'mp4',
         '94': 'mp4',
@@ -190,6 +226,29 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         '96': 'mp4',
         '132': 'mp4',
         '151': 'mp4',
+
+        # Dash mp4
+        '133': 'mp4',
+        '134': 'mp4',
+        '135': 'mp4',
+        '136': 'mp4',
+        '137': 'mp4',
+        '138': 'mp4',
+        '139': 'mp4',
+        '140': 'mp4',
+        '141': 'mp4',
+        '160': 'mp4',
+
+        # Dash webm
+        '171': 'webm',
+        '172': 'webm',
+        '242': 'webm',
+        '243': 'webm',
+        '244': 'webm',
+        '245': 'webm',
+        '246': 'webm',
+        '247': 'webm',
+        '248': 'webm',
     }
     _video_dimensions = {
         '5': '240x400',
@@ -200,6 +259,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         '22': '720x1280',
         '34': '360x640',
         '35': '480x854',
+        '36': '240x320',
         '37': '1080x1920',
         '38': '3072x4096',
         '43': '360x640',
@@ -217,11 +277,58 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         '96': '1080p',
         '100': '360p',
         '101': '480p',
-        '102': '720p',        
+        '102': '720p',
         '132': '240p',
         '151': '72p',
+        '133': '240p',
+        '134': '360p',
+        '135': '480p',
+        '136': '720p',
+        '137': '1080p',
+        '138': '>1080p',
+        '139': '48k',
+        '140': '128k',
+        '141': '256k',
+        '160': '192p',
+        '171': '128k',
+        '172': '256k',
+        '242': '240p',
+        '243': '360p',
+        '244': '480p',
+        '245': '480p',
+        '246': '480p',
+        '247': '720p',
+        '248': '1080p',
     }
-    _3d_itags = ['85', '84', '102', '83', '101', '82', '100']
+    _special_itags = {
+        '82': '3D',
+        '83': '3D',
+        '84': '3D',
+        '85': '3D',
+        '100': '3D',
+        '101': '3D',
+        '102': '3D',
+        '133': 'DASH Video',
+        '134': 'DASH Video',
+        '135': 'DASH Video',
+        '136': 'DASH Video',
+        '137': 'DASH Video',
+        '138': 'DASH Video',
+        '139': 'DASH Audio',
+        '140': 'DASH Audio',
+        '141': 'DASH Audio',
+        '160': 'DASH Video',
+        '171': 'DASH Audio',
+        '172': 'DASH Audio',
+        '242': 'DASH Video',
+        '243': 'DASH Video',
+        '244': 'DASH Video',
+        '245': 'DASH Video',
+        '246': 'DASH Video',
+        '247': 'DASH Video',
+        '248': 'DASH Video',
+    }
+
     IE_NAME = 'youtube'
     _TESTS = [
         {
@@ -254,8 +361,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             "info_dict": {
                 "upload_date": "20120506",
                 "title": "Icona Pop - I Love It (feat. Charli XCX) [OFFICIAL VIDEO]",
-                "description": "md5:b085c9804f5ab69f4adea963a2dceb3c",
-                "uploader": "IconaPop",
+                "description": "md5:5b292926389560516e384ac437c0ec07",
+                "uploader": "Icona Pop",
                 "uploader_id": "IconaPop"
             }
         },
@@ -271,29 +378,18 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 "uploader_id": "justintimberlakeVEVO"
             }
         },
-        {
-            'url': 'https://www.youtube.com/watch?v=TGi3HqYrWHE',
-            'file': 'TGi3HqYrWHE.mp4',
-            'note': 'm3u8 video',
-            'info_dict': {
-                'title': 'Triathlon - Men - London 2012 Olympic Games',
-                'description': '- Men -  TR02 - Triathlon - 07 August 2012 - London 2012 Olympic Games',
-                'uploader': 'olympic',
-                'upload_date': '20120807',
-                'uploader_id': 'olympic',
-            },
-            'params': {
-                'skip_download': True,
-            },
-        },
     ]
 
 
     @classmethod
     def suitable(cls, url):
         """Receives a URL and returns True if suitable for this IE."""
-        if YoutubePlaylistIE.suitable(url) or YoutubeSubscriptionsIE.suitable(url): return False
+        if YoutubePlaylistIE.suitable(url): return False
         return re.match(cls._VALID_URL, url, re.VERBOSE) is not None
+
+    def __init__(self, *args, **kwargs):
+        super(YoutubeIE, self).__init__(*args, **kwargs)
+        self._player_cache = {}
 
     def report_video_webpage_download(self, video_id):
         """Report attempt to download video webpage."""
@@ -302,19 +398,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
     def report_video_info_webpage_download(self, video_id):
         """Report attempt to download video info webpage."""
         self.to_screen('%s: Downloading video info webpage' % video_id)
-
-    def report_video_subtitles_download(self, video_id):
-        """Report attempt to download video info webpage."""
-        self.to_screen('%s: Checking available subtitles' % video_id)
-
-    def report_video_subtitles_request(self, video_id, sub_lang, format):
-        """Report attempt to download video info webpage."""
-        self.to_screen('%s: Downloading video subtitles for %s.%s' % (video_id, sub_lang, format))
-
-    def report_video_subtitles_available(self, video_id, sub_lang_list):
-        """Report available subtitles."""
-        sub_lang = ",".join(list(sub_lang_list.keys()))
-        self.to_screen('%s: Available subtitles for video: %s' % (video_id, sub_lang))
 
     def report_information_extraction(self, video_id):
         """Report attempt to extract video information."""
@@ -328,151 +411,771 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         """Indicate the download will use the RTMP protocol."""
         self.to_screen('RTMP download detected')
 
-    def _decrypt_signature(self, s):
+    def _extract_signature_function(self, video_id, player_url, slen):
+        id_m = re.match(r'.*-(?P<id>[a-zA-Z0-9_-]+)\.(?P<ext>[a-z]+)$',
+                        player_url)
+        player_type = id_m.group('ext')
+        player_id = id_m.group('id')
+
+        # Read from filesystem cache
+        func_id = '%s_%s_%d' % (player_type, player_id, slen)
+        assert os.path.basename(func_id) == func_id
+        cache_dir = self._downloader.params.get('cachedir',
+                                                '~/.youtube-dl/cache')
+
+        cache_enabled = cache_dir is not None
+        if cache_enabled:
+            cache_fn = os.path.join(os.path.expanduser(cache_dir),
+                                    'youtube-sigfuncs',
+                                    func_id + '.json')
+            try:
+                with io.open(cache_fn, 'r', encoding='utf-8') as cachef:
+                    cache_spec = json.load(cachef)
+                return lambda s: ''.join(s[i] for i in cache_spec)
+            except IOError:
+                pass  # No cache available
+
+        if player_type == 'js':
+            code = self._download_webpage(
+                player_url, video_id,
+                note='Downloading %s player %s' % (player_type, player_id),
+                errnote='Download of %s failed' % player_url)
+            res = self._parse_sig_js(code)
+        elif player_type == 'swf':
+            urlh = self._request_webpage(
+                player_url, video_id,
+                note='Downloading %s player %s' % (player_type, player_id),
+                errnote='Download of %s failed' % player_url)
+            code = urlh.read()
+            res = self._parse_sig_swf(code)
+        else:
+            assert False, 'Invalid player type %r' % player_type
+
+        if cache_enabled:
+            try:
+                test_string = ''.join(map(compat_chr, list(range(slen))))
+                cache_res = res(test_string)
+                cache_spec = [ord(c) for c in cache_res]
+                try:
+                    os.makedirs(os.path.dirname(cache_fn))
+                except OSError as ose:
+                    if ose.errno != errno.EEXIST:
+                        raise
+                write_json_file(cache_spec, cache_fn)
+            except Exception:
+                tb = traceback.format_exc()
+                self._downloader.report_warning(
+                    'Writing cache to %r failed: %s' % (cache_fn, tb))
+
+        return res
+
+    def _print_sig_code(self, func, slen):
+        def gen_sig_code(idxs):
+            def _genslice(start, end, step):
+                starts = '' if start == 0 else str(start)
+                ends = (':%d' % (end+step)) if end + step >= 0 else ':'
+                steps = '' if step == 1 else (':%d' % step)
+                return 's[%s%s%s]' % (starts, ends, steps)
+
+            step = None
+            start = '(Never used)'  # Quelch pyflakes warnings - start will be
+                                    # set as soon as step is set
+            for i, prev in zip(idxs[1:], idxs[:-1]):
+                if step is not None:
+                    if i - prev == step:
+                        continue
+                    yield _genslice(start, prev, step)
+                    step = None
+                    continue
+                if i - prev in [-1, 1]:
+                    step = i - prev
+                    start = prev
+                    continue
+                else:
+                    yield 's[%d]' % prev
+            if step is None:
+                yield 's[%d]' % i
+            else:
+                yield _genslice(start, i, step)
+
+        test_string = ''.join(map(compat_chr, list(range(slen))))
+        cache_res = func(test_string)
+        cache_spec = [ord(c) for c in cache_res]
+        expr_code = ' + '.join(gen_sig_code(cache_spec))
+        code = 'if len(s) == %d:\n    return %s\n' % (slen, expr_code)
+        self.to_screen('Extracted signature function:\n' + code)
+
+    def _parse_sig_js(self, jscode):
+        funcname = self._search_regex(
+            r'signature=([a-zA-Z]+)', jscode,
+            'Initial JS player signature function name')
+
+        functions = {}
+
+        def argidx(varname):
+            return string.lowercase.index(varname)
+
+        def interpret_statement(stmt, local_vars, allow_recursion=20):
+            if allow_recursion < 0:
+                raise ExtractorError('Recursion limit reached')
+
+            if stmt.startswith('var '):
+                stmt = stmt[len('var '):]
+            ass_m = re.match(r'^(?P<out>[a-z]+)(?:\[(?P<index>[^\]]+)\])?' +
+                             r'=(?P<expr>.*)$', stmt)
+            if ass_m:
+                if ass_m.groupdict().get('index'):
+                    def assign(val):
+                        lvar = local_vars[ass_m.group('out')]
+                        idx = interpret_expression(ass_m.group('index'),
+                                                   local_vars, allow_recursion)
+                        assert isinstance(idx, int)
+                        lvar[idx] = val
+                        return val
+                    expr = ass_m.group('expr')
+                else:
+                    def assign(val):
+                        local_vars[ass_m.group('out')] = val
+                        return val
+                    expr = ass_m.group('expr')
+            elif stmt.startswith('return '):
+                assign = lambda v: v
+                expr = stmt[len('return '):]
+            else:
+                raise ExtractorError(
+                    'Cannot determine left side of statement in %r' % stmt)
+
+            v = interpret_expression(expr, local_vars, allow_recursion)
+            return assign(v)
+
+        def interpret_expression(expr, local_vars, allow_recursion):
+            if expr.isdigit():
+                return int(expr)
+
+            if expr.isalpha():
+                return local_vars[expr]
+
+            m = re.match(r'^(?P<in>[a-z]+)\.(?P<member>.*)$', expr)
+            if m:
+                member = m.group('member')
+                val = local_vars[m.group('in')]
+                if member == 'split("")':
+                    return list(val)
+                if member == 'join("")':
+                    return ''.join(val)
+                if member == 'length':
+                    return len(val)
+                if member == 'reverse()':
+                    return val[::-1]
+                slice_m = re.match(r'slice\((?P<idx>.*)\)', member)
+                if slice_m:
+                    idx = interpret_expression(
+                        slice_m.group('idx'), local_vars, allow_recursion-1)
+                    return val[idx:]
+
+            m = re.match(
+                r'^(?P<in>[a-z]+)\[(?P<idx>.+)\]$', expr)
+            if m:
+                val = local_vars[m.group('in')]
+                idx = interpret_expression(m.group('idx'), local_vars,
+                                           allow_recursion-1)
+                return val[idx]
+
+            m = re.match(r'^(?P<a>.+?)(?P<op>[%])(?P<b>.+?)$', expr)
+            if m:
+                a = interpret_expression(m.group('a'),
+                                         local_vars, allow_recursion)
+                b = interpret_expression(m.group('b'),
+                                         local_vars, allow_recursion)
+                return a % b
+
+            m = re.match(
+                r'^(?P<func>[a-zA-Z]+)\((?P<args>[a-z0-9,]+)\)$', expr)
+            if m:
+                fname = m.group('func')
+                if fname not in functions:
+                    functions[fname] = extract_function(fname)
+                argvals = [int(v) if v.isdigit() else local_vars[v]
+                           for v in m.group('args').split(',')]
+                return functions[fname](argvals)
+            raise ExtractorError('Unsupported JS expression %r' % expr)
+
+        def extract_function(funcname):
+            func_m = re.search(
+                r'function ' + re.escape(funcname) +
+                r'\((?P<args>[a-z,]+)\){(?P<code>[^}]+)}',
+                jscode)
+            argnames = func_m.group('args').split(',')
+
+            def resf(args):
+                local_vars = dict(list(zip(argnames, args)))
+                for stmt in func_m.group('code').split(';'):
+                    res = interpret_statement(stmt, local_vars)
+                return res
+            return resf
+
+        initial_function = extract_function(funcname)
+        return lambda s: initial_function([s])
+
+    def _parse_sig_swf(self, file_contents):
+        if file_contents[1:3] != b'WS':
+            raise ExtractorError(
+                'Not an SWF file; header is %r' % file_contents[:3])
+        if file_contents[:1] == b'C':
+            content = zlib.decompress(file_contents[8:])
+        else:
+            raise NotImplementedError('Unsupported compression format %r' %
+                                      file_contents[:1])
+
+        def extract_tags(content):
+            pos = 0
+            while pos < len(content):
+                header16 = struct.unpack('<H', content[pos:pos+2])[0]
+                pos += 2
+                tag_code = header16 >> 6
+                tag_len = header16 & 0x3f
+                if tag_len == 0x3f:
+                    tag_len = struct.unpack('<I', content[pos:pos+4])[0]
+                    pos += 4
+                assert pos+tag_len <= len(content)
+                yield (tag_code, content[pos:pos+tag_len])
+                pos += tag_len
+
+        code_tag = next(tag
+                        for tag_code, tag in extract_tags(content)
+                        if tag_code == 82)
+        p = code_tag.index(b'\0', 4) + 1
+        code_reader = io.BytesIO(code_tag[p:])
+
+        # Parse ABC (AVM2 ByteCode)
+        def read_int(reader=None):
+            if reader is None:
+                reader = code_reader
+            res = 0
+            shift = 0
+            for _ in range(5):
+                buf = reader.read(1)
+                assert len(buf) == 1
+                b = struct.unpack('<B', buf)[0]
+                res = res | ((b & 0x7f) << shift)
+                if b & 0x80 == 0:
+                    break
+                shift += 7
+            return res
+
+        def u30(reader=None):
+            res = read_int(reader)
+            assert res & 0xf0000000 == 0
+            return res
+        u32 = read_int
+
+        def s32(reader=None):
+            v = read_int(reader)
+            if v & 0x80000000 != 0:
+                v = - ((v ^ 0xffffffff) + 1)
+            return v
+
+        def read_string(reader=None):
+            if reader is None:
+                reader = code_reader
+            slen = u30(reader)
+            resb = reader.read(slen)
+            assert len(resb) == slen
+            return resb.decode('utf-8')
+
+        def read_bytes(count, reader=None):
+            if reader is None:
+                reader = code_reader
+            resb = reader.read(count)
+            assert len(resb) == count
+            return resb
+
+        def read_byte(reader=None):
+            resb = read_bytes(1, reader=reader)
+            res = struct.unpack('<B', resb)[0]
+            return res
+
+        # minor_version + major_version
+        read_bytes(2 + 2)
+
+        # Constant pool
+        int_count = u30()
+        for _c in range(1, int_count):
+            s32()
+        uint_count = u30()
+        for _c in range(1, uint_count):
+            u32()
+        double_count = u30()
+        read_bytes((double_count-1) * 8)
+        string_count = u30()
+        constant_strings = ['']
+        for _c in range(1, string_count):
+            s = read_string()
+            constant_strings.append(s)
+        namespace_count = u30()
+        for _c in range(1, namespace_count):
+            read_bytes(1)  # kind
+            u30()  # name
+        ns_set_count = u30()
+        for _c in range(1, ns_set_count):
+            count = u30()
+            for _c2 in range(count):
+                u30()
+        multiname_count = u30()
+        MULTINAME_SIZES = {
+            0x07: 2,  # QName
+            0x0d: 2,  # QNameA
+            0x0f: 1,  # RTQName
+            0x10: 1,  # RTQNameA
+            0x11: 0,  # RTQNameL
+            0x12: 0,  # RTQNameLA
+            0x09: 2,  # Multiname
+            0x0e: 2,  # MultinameA
+            0x1b: 1,  # MultinameL
+            0x1c: 1,  # MultinameLA
+        }
+        multinames = ['']
+        for _c in range(1, multiname_count):
+            kind = u30()
+            assert kind in MULTINAME_SIZES, 'Invalid multiname kind %r' % kind
+            if kind == 0x07:
+                u30()  # namespace_idx
+                name_idx = u30()
+                multinames.append(constant_strings[name_idx])
+            else:
+                multinames.append('[MULTINAME kind: %d]' % kind)
+                for _c2 in range(MULTINAME_SIZES[kind]):
+                    u30()
+
+        # Methods
+        method_count = u30()
+        MethodInfo = collections.namedtuple(
+            'MethodInfo',
+            ['NEED_ARGUMENTS', 'NEED_REST'])
+        method_infos = []
+        for method_id in range(method_count):
+            param_count = u30()
+            u30()  # return type
+            for _ in range(param_count):
+                u30()  # param type
+            u30()  # name index (always 0 for youtube)
+            flags = read_byte()
+            if flags & 0x08 != 0:
+                # Options present
+                option_count = u30()
+                for c in range(option_count):
+                    u30()  # val
+                    read_bytes(1)  # kind
+            if flags & 0x80 != 0:
+                # Param names present
+                for _ in range(param_count):
+                    u30()  # param name
+            mi = MethodInfo(flags & 0x01 != 0, flags & 0x04 != 0)
+            method_infos.append(mi)
+
+        # Metadata
+        metadata_count = u30()
+        for _c in range(metadata_count):
+            u30()  # name
+            item_count = u30()
+            for _c2 in range(item_count):
+                u30()  # key
+                u30()  # value
+
+        def parse_traits_info():
+            trait_name_idx = u30()
+            kind_full = read_byte()
+            kind = kind_full & 0x0f
+            attrs = kind_full >> 4
+            methods = {}
+            if kind in [0x00, 0x06]:  # Slot or Const
+                u30()  # Slot id
+                u30()  # type_name_idx
+                vindex = u30()
+                if vindex != 0:
+                    read_byte()  # vkind
+            elif kind in [0x01, 0x02, 0x03]:  # Method / Getter / Setter
+                u30()  # disp_id
+                method_idx = u30()
+                methods[multinames[trait_name_idx]] = method_idx
+            elif kind == 0x04:  # Class
+                u30()  # slot_id
+                u30()  # classi
+            elif kind == 0x05:  # Function
+                u30()  # slot_id
+                function_idx = u30()
+                methods[function_idx] = multinames[trait_name_idx]
+            else:
+                raise ExtractorError('Unsupported trait kind %d' % kind)
+
+            if attrs & 0x4 != 0:  # Metadata present
+                metadata_count = u30()
+                for _c3 in range(metadata_count):
+                    u30()  # metadata index
+
+            return methods
+
+        # Classes
+        TARGET_CLASSNAME = 'SignatureDecipher'
+        searched_idx = multinames.index(TARGET_CLASSNAME)
+        searched_class_id = None
+        class_count = u30()
+        for class_id in range(class_count):
+            name_idx = u30()
+            if name_idx == searched_idx:
+                # We found the class we're looking for!
+                searched_class_id = class_id
+            u30()  # super_name idx
+            flags = read_byte()
+            if flags & 0x08 != 0:  # Protected namespace is present
+                u30()  # protected_ns_idx
+            intrf_count = u30()
+            for _c2 in range(intrf_count):
+                u30()
+            u30()  # iinit
+            trait_count = u30()
+            for _c2 in range(trait_count):
+                parse_traits_info()
+
+        if searched_class_id is None:
+            raise ExtractorError('Target class %r not found' %
+                                 TARGET_CLASSNAME)
+
+        method_names = {}
+        method_idxs = {}
+        for class_id in range(class_count):
+            u30()  # cinit
+            trait_count = u30()
+            for _c2 in range(trait_count):
+                trait_methods = parse_traits_info()
+                if class_id == searched_class_id:
+                    method_names.update(list(trait_methods.items()))
+                    method_idxs.update(dict(
+                        (idx, name)
+                        for name, idx in list(trait_methods.items())))
+
+        # Scripts
+        script_count = u30()
+        for _c in range(script_count):
+            u30()  # init
+            trait_count = u30()
+            for _c2 in range(trait_count):
+                parse_traits_info()
+
+        # Method bodies
+        method_body_count = u30()
+        Method = collections.namedtuple('Method', ['code', 'local_count'])
+        methods = {}
+        for _c in range(method_body_count):
+            method_idx = u30()
+            u30()  # max_stack
+            local_count = u30()
+            u30()  # init_scope_depth
+            u30()  # max_scope_depth
+            code_length = u30()
+            code = read_bytes(code_length)
+            if method_idx in method_idxs:
+                m = Method(code, local_count)
+                methods[method_idxs[method_idx]] = m
+            exception_count = u30()
+            for _c2 in range(exception_count):
+                u30()  # from
+                u30()  # to
+                u30()  # target
+                u30()  # exc_type
+                u30()  # var_name
+            trait_count = u30()
+            for _c2 in range(trait_count):
+                parse_traits_info()
+
+        assert p + code_reader.tell() == len(code_tag)
+        assert len(methods) == len(method_idxs)
+
+        method_pyfunctions = {}
+
+        def extract_function(func_name):
+            if func_name in method_pyfunctions:
+                return method_pyfunctions[func_name]
+            if func_name not in methods:
+                raise ExtractorError('Cannot find function %r' % func_name)
+            m = methods[func_name]
+
+            def resfunc(args):
+                registers = ['(this)'] + list(args) + [None] * m.local_count
+                stack = []
+                coder = io.BytesIO(m.code)
+                while True:
+                    opcode = struct.unpack('!B', coder.read(1))[0]
+                    if opcode == 36:  # pushbyte
+                        v = struct.unpack('!B', coder.read(1))[0]
+                        stack.append(v)
+                    elif opcode == 44:  # pushstring
+                        idx = u30(coder)
+                        stack.append(constant_strings[idx])
+                    elif opcode == 48:  # pushscope
+                        # We don't implement the scope register, so we'll just
+                        # ignore the popped value
+                        stack.pop()
+                    elif opcode == 70:  # callproperty
+                        index = u30(coder)
+                        mname = multinames[index]
+                        arg_count = u30(coder)
+                        args = list(reversed(
+                            [stack.pop() for _ in range(arg_count)]))
+                        obj = stack.pop()
+                        if mname == 'split':
+                            assert len(args) == 1
+                            assert isinstance(args[0], compat_str)
+                            assert isinstance(obj, compat_str)
+                            if args[0] == '':
+                                res = list(obj)
+                            else:
+                                res = obj.split(args[0])
+                            stack.append(res)
+                        elif mname == 'slice':
+                            assert len(args) == 1
+                            assert isinstance(args[0], int)
+                            assert isinstance(obj, list)
+                            res = obj[args[0]:]
+                            stack.append(res)
+                        elif mname == 'join':
+                            assert len(args) == 1
+                            assert isinstance(args[0], compat_str)
+                            assert isinstance(obj, list)
+                            res = args[0].join(obj)
+                            stack.append(res)
+                        elif mname in method_pyfunctions:
+                            stack.append(method_pyfunctions[mname](args))
+                        else:
+                            raise NotImplementedError(
+                                'Unsupported property %r on %r'
+                                % (mname, obj))
+                    elif opcode == 72:  # returnvalue
+                        res = stack.pop()
+                        return res
+                    elif opcode == 79:  # callpropvoid
+                        index = u30(coder)
+                        mname = multinames[index]
+                        arg_count = u30(coder)
+                        args = list(reversed(
+                            [stack.pop() for _ in range(arg_count)]))
+                        obj = stack.pop()
+                        if mname == 'reverse':
+                            assert isinstance(obj, list)
+                            obj.reverse()
+                        else:
+                            raise NotImplementedError(
+                                'Unsupported (void) property %r on %r'
+                                % (mname, obj))
+                    elif opcode == 93:  # findpropstrict
+                        index = u30(coder)
+                        mname = multinames[index]
+                        res = extract_function(mname)
+                        stack.append(res)
+                    elif opcode == 97:  # setproperty
+                        index = u30(coder)
+                        value = stack.pop()
+                        idx = stack.pop()
+                        obj = stack.pop()
+                        assert isinstance(obj, list)
+                        assert isinstance(idx, int)
+                        obj[idx] = value
+                    elif opcode == 98:  # getlocal
+                        index = u30(coder)
+                        stack.append(registers[index])
+                    elif opcode == 99:  # setlocal
+                        index = u30(coder)
+                        value = stack.pop()
+                        registers[index] = value
+                    elif opcode == 102:  # getproperty
+                        index = u30(coder)
+                        pname = multinames[index]
+                        if pname == 'length':
+                            obj = stack.pop()
+                            assert isinstance(obj, list)
+                            stack.append(len(obj))
+                        else:  # Assume attribute access
+                            idx = stack.pop()
+                            assert isinstance(idx, int)
+                            obj = stack.pop()
+                            assert isinstance(obj, list)
+                            stack.append(obj[idx])
+                    elif opcode == 128:  # coerce
+                        u30(coder)
+                    elif opcode == 133:  # coerce_s
+                        assert isinstance(stack[-1], (type(None), compat_str))
+                    elif opcode == 164:  # modulo
+                        value2 = stack.pop()
+                        value1 = stack.pop()
+                        res = value1 % value2
+                        stack.append(res)
+                    elif opcode == 208:  # getlocal_0
+                        stack.append(registers[0])
+                    elif opcode == 209:  # getlocal_1
+                        stack.append(registers[1])
+                    elif opcode == 210:  # getlocal_2
+                        stack.append(registers[2])
+                    elif opcode == 211:  # getlocal_3
+                        stack.append(registers[3])
+                    elif opcode == 214:  # setlocal_2
+                        registers[2] = stack.pop()
+                    elif opcode == 215:  # setlocal_3
+                        registers[3] = stack.pop()
+                    else:
+                        raise NotImplementedError(
+                            'Unsupported opcode %d' % opcode)
+
+            method_pyfunctions[func_name] = resfunc
+            return resfunc
+
+        initial_function = extract_function('decipher')
+        return lambda s: initial_function([s])
+
+    def _decrypt_signature(self, s, video_id, player_url, age_gate=False):
         """Turn the encrypted s field into a working signature"""
 
-        if len(s) == 92:
+        if player_url is not None:
+            try:
+                if player_url not in self._player_cache:
+                    func = self._extract_signature_function(
+                        video_id, player_url, len(s)
+                    )
+                    self._player_cache[player_url] = func
+                func = self._player_cache[player_url]
+                if self._downloader.params.get('youtube_print_sig_code'):
+                    self._print_sig_code(func, len(s))
+                return func(s)
+            except Exception:
+                tb = traceback.format_exc()
+                self._downloader.report_warning(
+                    'Automatic signature extraction failed: ' + tb)
+
+            self._downloader.report_warning(
+                'Warning: Falling back to static signature algorithm')
+
+        return self._static_decrypt_signature(
+            s, video_id, player_url, age_gate)
+
+    def _static_decrypt_signature(self, s, video_id, player_url, age_gate):
+        if age_gate:
+            # The videos with age protection use another player, so the
+            # algorithms can be different.
+            if len(s) == 86:
+                return s[2:63] + s[82] + s[64:82] + s[63]
+
+        if len(s) == 93:
+            return s[86:29:-1] + s[88] + s[28:5:-1]
+        elif len(s) == 92:
             return s[25] + s[3:25] + s[0] + s[26:42] + s[79] + s[43:79] + s[91] + s[80:83]
+        elif len(s) == 91:
+            return s[84:27:-1] + s[86] + s[26:5:-1]
         elif len(s) == 90:
             return s[25] + s[3:25] + s[2] + s[26:40] + s[77] + s[41:77] + s[89] + s[78:81]
         elif len(s) == 89:
             return s[84:78:-1] + s[87] + s[77:60:-1] + s[0] + s[59:3:-1]
         elif len(s) == 88:
-            return s[48] + s[81:67:-1] + s[82] + s[66:62:-1] + s[85] + s[61:48:-1] + s[67] + s[47:12:-1] + s[3] + s[11:3:-1] + s[2] + s[12]
+            return s[7:28] + s[87] + s[29:45] + s[55] + s[46:55] + s[2] + s[56:87] + s[28]
         elif len(s) == 87:
-            return s[83:53:-1] + s[3] + s[52:40:-1] + s[86] + s[39:10:-1] + s[0] + s[9:3:-1] + s[53]
+            return s[6:27] + s[4] + s[28:39] + s[27] + s[40:59] + s[2] + s[60:]
         elif len(s) == 86:
-            return s[5:20] + s[2] + s[21:]
+            return s[80:72:-1] + s[16] + s[71:39:-1] + s[72] + s[38:16:-1] + s[82] + s[15::-1]
         elif len(s) == 85:
-            return s[2:8] + s[0] + s[9:21] + s[65] + s[22:65] + s[84] + s[66:82] + s[21]
+            return s[3:11] + s[0] + s[12:55] + s[84] + s[56:84]
         elif len(s) == 84:
-            return s[83:27:-1] + s[0] + s[26:5:-1] + s[2:0:-1] + s[27]
+            return s[78:70:-1] + s[14] + s[69:37:-1] + s[70] + s[36:14:-1] + s[80] + s[:14][::-1]
         elif len(s) == 83:
-            return s[:15] + s[80] + s[16:80] + s[15]
+            return s[80:63:-1] + s[0] + s[62:0:-1] + s[63]
         elif len(s) == 82:
-            return s[36] + s[79:67:-1] + s[81] + s[66:40:-1] + s[33] + s[39:36:-1] + s[40] + s[35] + s[0] + s[67] + s[32:0:-1] + s[34]
+            return s[80:73:-1] + s[81] + s[72:54:-1] + s[2] + s[53:43:-1] + s[0] + s[42:2:-1] + s[43] + s[1] + s[54]
         elif len(s) == 81:
             return s[56] + s[79:56:-1] + s[41] + s[55:41:-1] + s[80] + s[40:34:-1] + s[0] + s[33:29:-1] + s[34] + s[28:9:-1] + s[29] + s[8:0:-1] + s[9]
+        elif len(s) == 80:
+            return s[1:19] + s[0] + s[20:68] + s[19] + s[69:80]
         elif len(s) == 79:
             return s[54] + s[77:54:-1] + s[39] + s[53:39:-1] + s[78] + s[38:34:-1] + s[0] + s[33:29:-1] + s[34] + s[28:9:-1] + s[29] + s[8:0:-1] + s[9]
 
         else:
             raise ExtractorError('Unable to decrypt signature, key length %d not supported; retrying might work' % (len(s)))
 
-    def _decrypt_signature_age_gate(self, s):
-        # The videos with age protection use another player, so the algorithms
-        # can be different.
-        if len(s) == 86:
-            return s[2:63] + s[82] + s[64:82] + s[63]
-        else:
-            # Fallback to the other algortihms
-            return self._decrypt_signature(s)
-
-
     def _get_available_subtitles(self, video_id):
-        self.report_video_subtitles_download(video_id)
-        request = compat_urllib_request.Request('http://video.google.com/timedtext?hl=en&type=list&v=%s' % video_id)
         try:
-            sub_list = compat_urllib_request.urlopen(request).read().decode('utf-8')
-        except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
-            return ('unable to download video subtitles: %s' % compat_str(err), None)
-        sub_lang_list = re.findall(r'name="([^"]*)"[^>]+lang_code="([\w\-]+)"', sub_list)
-        sub_lang_list = dict((l[1], l[0]) for l in sub_lang_list)
+            sub_list = self._download_webpage(
+                'http://video.google.com/timedtext?hl=en&type=list&v=%s' % video_id,
+                video_id, note=False)
+        except ExtractorError as err:
+            self._downloader.report_warning('unable to download video subtitles: %s' % compat_str(err))
+            return {}
+        lang_list = re.findall(r'name="([^"]*)"[^>]+lang_code="([\w\-]+)"', sub_list)
+
+        sub_lang_list = {}
+        for l in lang_list:
+            lang = l[1]
+            params = compat_urllib_parse.urlencode({
+                'lang': lang,
+                'v': video_id,
+                'fmt': self._downloader.params.get('subtitlesformat'),
+            })
+            url = 'http://www.youtube.com/api/timedtext?' + params
+            sub_lang_list[lang] = url
         if not sub_lang_list:
-            return ('video doesn\'t have subtitles', None)
+            self._downloader.report_warning('video doesn\'t have subtitles')
+            return {}
         return sub_lang_list
 
-    def _list_available_subtitles(self, video_id):
-        sub_lang_list = self._get_available_subtitles(video_id)
-        self.report_video_subtitles_available(video_id, sub_lang_list)
-
-    def _request_subtitle(self, sub_lang, sub_name, video_id, format):
-        """
-        Return tuple:
-        (error_message, sub_lang, sub)
-        """
-        self.report_video_subtitles_request(video_id, sub_lang, format)
-        params = compat_urllib_parse.urlencode({
-            'lang': sub_lang,
-            'name': sub_name,
-            'v': video_id,
-            'fmt': format,
-        })
-        url = 'http://www.youtube.com/api/timedtext?' + params
-        try:
-            sub = compat_urllib_request.urlopen(url).read().decode('utf-8')
-        except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
-            return ('unable to download video subtitles: %s' % compat_str(err), None, None)
-        if not sub:
-            return ('Did not fetch video subtitles', None, None)
-        return (None, sub_lang, sub)
-
-    def _request_automatic_caption(self, video_id, webpage):
+    def _get_available_automatic_caption(self, video_id, webpage):
         """We need the webpage for getting the captions url, pass it as an
            argument to speed up the process."""
-        sub_lang = self._downloader.params.get('subtitleslang') or 'en'
         sub_format = self._downloader.params.get('subtitlesformat')
         self.to_screen('%s: Looking for automatic captions' % video_id)
         mobj = re.search(r';ytplayer.config = ({.*?});', webpage)
-        err_msg = 'Couldn\'t find automatic captions for "%s"' % sub_lang
+        err_msg = 'Couldn\'t find automatic captions for %s' % video_id
         if mobj is None:
-            return [(err_msg, None, None)]
+            self._downloader.report_warning(err_msg)
+            return {}
         player_config = json.loads(mobj.group(1))
         try:
             args = player_config['args']
             caption_url = args['ttsurl']
             timestamp = args['timestamp']
-            params = compat_urllib_parse.urlencode({
-                'lang': 'en',
-                'tlang': sub_lang,
-                'fmt': sub_format,
-                'ts': timestamp,
-                'kind': 'asr',
+            # We get the available subtitles
+            list_params = compat_urllib_parse.urlencode({
+                'type': 'list',
+                'tlangs': 1,
+                'asrs': 1,
             })
-            subtitles_url = caption_url + '&' + params
-            sub = self._download_webpage(subtitles_url, video_id, 'Downloading automatic captions')
-            return [(None, sub_lang, sub)]
-        except KeyError:
-            return [(err_msg, None, None)]
+            list_url = caption_url + '&' + list_params
+            list_page = self._download_webpage(list_url, video_id)
+            caption_list = xml.etree.ElementTree.fromstring(list_page.encode('utf-8'))
+            original_lang_node = caption_list.find('track')
+            if original_lang_node.attrib.get('kind') != 'asr' :
+                self._downloader.report_warning('Video doesn\'t have automatic captions')
+                return {}
+            original_lang = original_lang_node.attrib['lang_code']
 
-    def _extract_subtitle(self, video_id):
-        """
-        Return a list with a tuple:
-        [(error_message, sub_lang, sub)]
-        """
-        sub_lang_list = self._get_available_subtitles(video_id)
-        sub_format = self._downloader.params.get('subtitlesformat')
-        if  isinstance(sub_lang_list,tuple): #There was some error, it didn't get the available subtitles
-            return [(sub_lang_list[0], None, None)]
-        if self._downloader.params.get('subtitleslang', False):
-            sub_lang = self._downloader.params.get('subtitleslang')
-        elif 'en' in sub_lang_list:
-            sub_lang = 'en'
-        else:
-            sub_lang = list(sub_lang_list.keys())[0]
-        if not sub_lang in sub_lang_list:
-            return [('no closed captions found in the specified language "%s"' % sub_lang, None, None)]
-
-        subtitle = self._request_subtitle(sub_lang, sub_lang_list[sub_lang].encode('utf-8'), video_id, sub_format)
-        return [subtitle]
-
-    def _extract_all_subtitles(self, video_id):
-        sub_lang_list = self._get_available_subtitles(video_id)
-        sub_format = self._downloader.params.get('subtitlesformat')
-        if  isinstance(sub_lang_list,tuple): #There was some error, it didn't get the available subtitles
-            return [(sub_lang_list[0], None, None)]
-        subtitles = []
-        for sub_lang in sub_lang_list:
-            subtitle = self._request_subtitle(sub_lang, sub_lang_list[sub_lang].encode('utf-8'), video_id, sub_format)
-            subtitles.append(subtitle)
-        return subtitles
+            sub_lang_list = {}
+            for lang_node in caption_list.findall('target'):
+                sub_lang = lang_node.attrib['lang_code']
+                params = compat_urllib_parse.urlencode({
+                    'lang': original_lang,
+                    'tlang': sub_lang,
+                    'fmt': sub_format,
+                    'ts': timestamp,
+                    'kind': 'asr',
+                })
+                sub_lang_list[sub_lang] = caption_url + '&' + params
+            return sub_lang_list
+        # An extractor error can be raise by the download process if there are
+        # no automatic captions but there are subtitles
+        except (KeyError, ExtractorError):
+            self._downloader.report_warning(err_msg)
+            return {}
 
     def _print_formats(self, formats):
         print('Available formats:')
         for x in formats:
             print(('%s\t:\t%s\t[%s]%s' %(x, self._video_extensions.get(x, 'flv'),
                                         self._video_dimensions.get(x, '???'),
-                                        ' (3D)' if x in self._3d_itags else '')))
+                                        ' ('+self._special_itags[x]+')' if x in self._special_itags else '')))
 
     def _extract_id(self, url):
         mobj = re.match(self._VALID_URL, url, re.VERBOSE)
@@ -507,12 +1210,24 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             video_url_list = [(f, url_map[f]) for f in existing_formats] # All formats
         else:
             # Specific formats. We pick the first in a slash-delimeted sequence.
-            # For example, if '1/2/3/4' is requested and '2' and '4' are available, we pick '2'.
+            # Format can be specified as itag or 'mp4' or 'flv' etc. We pick the highest quality
+            # available in the specified format. For example,
+            # if '1/2/3/4' is requested and '2' and '4' are available, we pick '2'.
+            # if '1/mp4/3/4' is requested and '1' and '5' (is a mp4) are available, we pick '1'.
+            # if '1/mp4/3/4' is requested and '4' and '5' (is a mp4) are available, we pick '5'.
             req_formats = req_format.split('/')
             video_url_list = None
             for rf in req_formats:
                 if rf in url_map:
                     video_url_list = [(rf, url_map[rf])]
+                    break
+                if rf in self._video_formats_map:
+                    for srf in self._video_formats_map[rf]:
+                        if srf in url_map:
+                            video_url_list = [(srf, url_map[srf])]
+                            break
+                    else:
+                        continue
                     break
             if video_url_list is None:
                 raise ExtractorError('requested format not available')
@@ -553,7 +1268,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         video_webpage = video_webpage_bytes.decode('utf-8', 'ignore')
 
         # Attempt to extract SWF player URL
-        mobj = re.search(r'swfConfig.*?"(http:\\/\\/.*?watch.*?-.*?\.swf)"', video_webpage)
+        mobj = re.search(r'swfConfig.*?"(https?:\\/\\/.*?watch.*?-.*?\.swf)"', video_webpage)
         if mobj is not None:
             player_url = re.sub(r'\\(.)', r'\1', mobj.group(1))
         else:
@@ -629,7 +1344,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             video_thumbnail = m_thumb.group(1)
         elif 'thumbnail_url' not in video_info:
             self._downloader.report_warning('unable to extract video thumbnail')
-            video_thumbnail = ''
+            video_thumbnail = None
         else:   # don't panic if we can't find it
             video_thumbnail = compat_urllib_parse.unquote_plus(video_info['thumbnail_url'][0])
 
@@ -652,30 +1367,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 video_description = ''
 
         # subtitles
-        video_subtitles = None
-
-        if self._downloader.params.get('writesubtitles', False):
-            video_subtitles = self._extract_subtitle(video_id)
-            if video_subtitles:
-                (sub_error, sub_lang, sub) = video_subtitles[0]
-                if sub_error:
-                    self._downloader.report_warning(sub_error)
-        
-        if self._downloader.params.get('writeautomaticsub', False):
-            video_subtitles = self._request_automatic_caption(video_id, video_webpage)
-            (sub_error, sub_lang, sub) = video_subtitles[0]
-            if sub_error:
-                self._downloader.report_warning(sub_error)
-
-        if self._downloader.params.get('allsubtitles', False):
-            video_subtitles = self._extract_all_subtitles(video_id)
-            for video_subtitle in video_subtitles:
-                (sub_error, sub_lang, sub) = video_subtitle
-                if sub_error:
-                    self._downloader.report_warning(sub_error)
+        video_subtitles = self.extract_subtitles(video_id, video_webpage)
 
         if self._downloader.params.get('listsubtitles', False):
-            self._list_available_subtitles(video_id)
+            self._list_available_subtitles(video_id, video_webpage)
             return
 
         if 'length_seconds' not in video_info:
@@ -698,6 +1393,17 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             if m_s is not None:
                 self.to_screen('%s: Encrypted signatures detected.' % video_id)
                 video_info['url_encoded_fmt_stream_map'] = [args['url_encoded_fmt_stream_map']]
+            m_s = re.search(r'[&,]s=', args.get('adaptive_fmts', ''))
+            if m_s is not None:
+                if 'url_encoded_fmt_stream_map' in video_info:
+                    video_info['url_encoded_fmt_stream_map'][0] += ',' + args['adaptive_fmts']
+                else:
+                    video_info['url_encoded_fmt_stream_map'] = [args['adaptive_fmts']]
+            elif 'adaptive_fmts' in video_info:
+                if 'url_encoded_fmt_stream_map' in video_info:
+                    video_info['url_encoded_fmt_stream_map'][0] += ',' + video_info['adaptive_fmts'][0]
+                else:
+                    video_info['url_encoded_fmt_stream_map'] = video_info['adaptive_fmts']
         except ValueError:
             pass
 
@@ -715,24 +1421,34 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     if 'sig' in url_data:
                         url += '&signature=' + url_data['sig'][0]
                     elif 's' in url_data:
-                        if self._downloader.params.get('verbose'):
-                            s = url_data['s'][0]
-                            if age_gate:
-                                player_version = self._search_regex(r'ad3-(.+?)\.swf',
-                                    video_info['ad3_module'][0] if 'ad3_module' in video_info else 'NOT FOUND',
-                                    'flash player', fatal=False)
-                                player = 'flash player %s' % player_version
-                            else:
-                                player = 'html5 player %s' % self._search_regex(r'html5player-(.+?)\.js', video_webpage,
-                                    'html5 player', fatal=False)
-                            parts_sizes = '.'.join(compat_str(len(part)) for part in s.split('.'))
-                            self.to_screen('encrypted signature length %d (%s), itag %s, %s' %
-                                (len(s), parts_sizes, url_data['itag'][0], player))
                         encrypted_sig = url_data['s'][0]
-                        if age_gate:
-                            signature = self._decrypt_signature_age_gate(encrypted_sig)
-                        else:
-                            signature = self._decrypt_signature(encrypted_sig)
+                        if self._downloader.params.get('verbose'):
+                            if age_gate:
+                                if player_url is None:
+                                    player_version = 'unknown'
+                                else:
+                                    player_version = self._search_regex(
+                                        r'-(.+)\.swf$', player_url,
+                                        'flash player', fatal=False)
+                                player_desc = 'flash player %s' % player_version
+                            else:
+                                player_version = self._search_regex(
+                                    r'html5player-(.+?)\.js', video_webpage,
+                                    'html5 player', fatal=False)
+                                player_desc = 'html5 player %s' % player_version
+
+                            parts_sizes = '.'.join(compat_str(len(part)) for part in encrypted_sig.split('.'))
+                            self.to_screen('encrypted signature length %d (%s), itag %s, %s' %
+                                (len(encrypted_sig), parts_sizes, url_data['itag'][0], player_desc))
+
+                        if not age_gate:
+                            jsplayer_url_json = self._search_regex(
+                                r'"assets":.+?"js":\s*("[^"]+")',
+                                video_webpage, 'JS player URL')
+                            player_url = json.loads(jsplayer_url_json)
+
+                        signature = self._decrypt_signature(
+                            encrypted_sig, video_id, player_url, age_gate)
                         url += '&signature=' + signature
                     if 'ratebypass' not in url:
                         url += '&ratebypass=yes'
@@ -748,7 +1464,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 return
 
         else:
-            raise ExtractorError('no conn or url_encoded_fmt_stream_map information found in video info')
+            raise ExtractorError('no conn, hlsvp or url_encoded_fmt_stream_map information found in video info')
 
         results = []
         for format_param, video_real_url in video_url_list:
@@ -757,7 +1473,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
             video_format = '{0} - {1}{2}'.format(format_param if format_param else video_extension,
                                               self._video_dimensions.get(format_param, '???'),
-                                              ' (3D)' if format_param in self._3d_itags else '')
+                                              ' ('+self._special_itags[format_param]+')' if format_param in self._special_itags else '')
 
             results.append({
                 'id':       video_id,
@@ -833,8 +1549,11 @@ class YoutubePlaylistIE(InfoExtractor):
 
             for entry in response['feed']['entry']:
                 index = entry['yt$position']['$t']
-                if 'media$group' in entry and 'media$player' in entry['media$group']:
-                    videos.append((index, entry['media$group']['media$player']['url']))
+                if 'media$group' in entry and 'yt$videoid' in entry['media$group']:
+                    videos.append((
+                        index,
+                        'https://www.youtube.com/watch?v=' + entry['media$group']['yt$videoid']['$t']
+                    ))
 
         videos = [v[1] for v in sorted(videos)]
 
@@ -900,12 +1619,19 @@ class YoutubeChannelIE(InfoExtractor):
 
 class YoutubeUserIE(InfoExtractor):
     IE_DESC = 'YouTube.com user videos (URL or "ytuser" keyword)'
-    _VALID_URL = r'(?:(?:(?:https?://)?(?:\w+\.)?youtube\.com/user/)|ytuser:)([A-Za-z0-9_-]+)'
+    _VALID_URL = r'(?:(?:(?:https?://)?(?:\w+\.)?youtube\.com/(?:user/)?)|ytuser:)(?!feed/)([A-Za-z0-9_-]+)'
     _TEMPLATE_URL = 'http://gdata.youtube.com/feeds/api/users/%s'
     _GDATA_PAGE_SIZE = 50
-    _GDATA_URL = 'http://gdata.youtube.com/feeds/api/users/%s/uploads?max-results=%d&start-index=%d'
-    _VIDEO_INDICATOR = r'/watch\?v=(.+?)[\<&]'
+    _GDATA_URL = 'http://gdata.youtube.com/feeds/api/users/%s/uploads?max-results=%d&start-index=%d&alt=json'
     IE_NAME = 'youtube:user'
+
+    @classmethod
+    def suitable(cls, url):
+        # Don't return True if the url can be extracted with other youtube
+        # extractor, the regex would is too permissive and it would match.
+        other_ies = iter(klass for (name, klass) in list(globals().items()) if name.endswith('IE') and klass is not cls)
+        if any(ie.suitable(url) for ie in other_ies): return False
+        else: return super(YoutubeUserIE, cls).suitable(url)
 
     def _real_extract(self, url):
         # Extract username
@@ -929,13 +1655,18 @@ class YoutubeUserIE(InfoExtractor):
             page = self._download_webpage(gdata_url, username,
                                           'Downloading video ids from %d to %d' % (start_index, start_index + self._GDATA_PAGE_SIZE))
 
+            try:
+                response = json.loads(page)
+            except ValueError as err:
+                raise ExtractorError('Invalid JSON in API response: ' + compat_str(err))
+            if 'entry' not in response['feed']:
+                # Number of videos is a multiple of self._MAX_RESULTS
+                break
+
             # Extract video identifiers
             ids_in_page = []
-
-            for mobj in re.finditer(self._VIDEO_INDICATOR, page):
-                if mobj.group(1) not in ids_in_page:
-                    ids_in_page.append(mobj.group(1))
-
+            for entry in response['feed']['entry']:
+                ids_in_page.append(entry['id']['$t'].split('/')[-1])
             video_ids.extend(ids_in_page)
 
             # A little optimization - if current page is not
@@ -1074,7 +1805,7 @@ class YoutubeWatchLaterIE(YoutubeFeedsInfoExtractor):
 class YoutubeFavouritesIE(YoutubeBaseInfoExtractor):
     IE_NAME = 'youtube:favorites'
     IE_DESC = 'YouTube.com favourite videos, "ytfav" keyword (requires authentication)'
-    _VALID_URL = r'https?://www\.youtube\.com/my_favorites|:ytfav(?:o?rites)?'
+    _VALID_URL = r'https?://www\.youtube\.com/my_favorites|:ytfav(?:ou?rites)?'
     _LOGIN_REQUIRED = True
 
     def _real_extract(self, url):

@@ -60,25 +60,98 @@ class SettingsWidgetMapper(QDataWidgetMapper):
 		return QLabel(label_text)
 
 
+class PreferredOrderWidget(QListWidget):
+	def __init__(self, options_list):
+		QListWidget.__init__(self)
+		for option in options_list:
+			self.addItem(QListWidgetItem(option))
+		self.setDragDropMode(QAbstractItemView.InternalMove)
+		self.setMaximumHeight(64)
+		self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+		self.setFocusPolicy(Qt.StrongFocus)
+
+	def focusOutEvent(self, event):
+		for i in range(self.count()):
+			self.item(i).setSelected(False)
+
+	def optionsList(self):
+		return [self.item(i).text() for i in range(self.count())]
+
+
 class SettingsDialog(QDialog):
 	def __init__(self, main_window, settings_model):
 		QDialog.__init__(self, main_window)
 		self.setWindowTitle("Preferences")
 		self.settingsModel = settings_model
+		self.settings = settings_model.settings
 		self.mapper = SettingsWidgetMapper(self.settingsModel)
 		self.mapper.setSubmitPolicy(QDataWidgetMapper.ManualSubmit)
+		dialoglayout = QVBoxLayout()
+		self.setLayout(dialoglayout)
+
+		group = QGroupBox("Download Settings")
+		layout = QFormLayout()
+		group.setLayout(layout)
+		dialoglayout.addWidget(group)
+		self.setLayout(layout)
+		self.folderChooser = QFolderChooser(self)
+		self.folderChooserLabel = self.mapper.map(self.folderChooser, "DefaultDownloadFolder")
+		self.filenameChooser = QLineEdit()
+		self.filenameChooserLabel = self.mapper.map(self.filenameChooser, "DefaultFileName")
+		layout.addRow(self.folderChooserLabel, self.folderChooser)
+		layout.addRow(self.filenameChooserLabel, self.filenameChooser)
+		#group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+		self.folderChooserLabel.setToolTip("Select a folder where downloaded files may land by default.\n"
+		                                   "You can set different folders on a per-item basis\n"
+		                                   "in the Clipboard View: Rightclick on Item → Info")
+		self.filenameChooserLabel.setToolTip("Filename Template Conventions:\n"
+		                                     "%extension% → transform to lowercase (mp4)\n"
+		                                     "%EXTENSION% → transform to uppercase (MP4)\n"
+		                                     "%exTenSiOn% or something like that → no transformation\n\n"
+		                                     "Available Keywords: title, url, host, extension, quality")
+		pair = QWidget()
+		pairlayout = QHBoxLayout()
+		pair.setLayout(pairlayout)
+		dialoglayout.addWidget(pair)
+
+		group = QGroupBox("Preferred File Extensions")
+		group.setToolTip("Prioritize Format Options by dragging them up or\n"
+		                 "down in priority relative to each other, so it will\n"
+		                 "be more likely for the upmost item to be preselected\n"
+		                 "when adding new Items to the Clipboard Queue.")
+		layout = QFormLayout()
+		group.setLayout(layout)
+		pairlayout.addWidget(group)
+		extension_options = self.settings.value("PreferredExtensionOrder", ["mp4", "webm", "mp3", "ogg"])
+		if not isinstance(extension_options, list):
+			extension_options = json.loads(extension_options)
+		self.extensionOrderWidget = PreferredOrderWidget(extension_options)
+		layout.addWidget(self.extensionOrderWidget)
+
+		group = QGroupBox("Preferred Quallity Options")
+		group.setToolTip("Prioritize Quality Options by dragging them up or\n"
+		                 "down in priority relative to each other, so it will\n"
+		                 "be more likely for the upmost item to be preselected\n"
+		                 "when adding new Items to the Clipboard Queue.\n\n"
+		                 "Music Files will always be extracted in the highest\n"
+		                 "available quality. On Youtube, videos with very low\n"
+		                 "resolutions may also have lower audio bitrates.")
+		layout = QFormLayout()
+		group.setLayout(layout)
+		pairlayout.addWidget(group)
+		quality_options = self.settings.value("PreferredQualityOrder", ["720p", "1080p", "480p", "360p"])
+		if not isinstance(quality_options, list):
+			quality_options = json.loads(quality_options)
+		self.qualityOrderWidget = PreferredOrderWidget(quality_options)
+		layout.addWidget(self.qualityOrderWidget)
+
 		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 		buttonbox.accepted.connect(self.submit)
 		buttonbox.rejected.connect(self.close)
-
-		layout = QFormLayout()
-		self.setLayout(layout)
-		self.folderChooser = QFolderChooser(self)
-		self.filenameChooser = QLineEdit()
-		layout.addRow(self.mapper.map(self.folderChooser, "DefaultDownloadFolder"), self.folderChooser)
-		layout.addRow(self.mapper.map(self.filenameChooser, "DefaultFileName"), self.filenameChooser)
-		layout.addRow(QLabel())
-		layout.addRow(buttonbox)
+		dialoglayout.addWidget(buttonbox)
+		self.settings.setValue("PreferredExtensionOrder", json.dumps(extension_options))
+		self.settings.setValue("PreferredQualityOrder", json.dumps(quality_options))
+		self.resize(450, self.sizeHint().height())
 
 	def open(self):
 		self.mapper.toFirst()
@@ -87,6 +160,10 @@ class SettingsDialog(QDialog):
 	def submit(self):
 		if self.folderChooser.checkPermissions(self.folderChooser.text()):
 			self.mapper.submit()
+			extension_options = self.extensionOrderWidget.optionsList()
+			quality_options = self.qualityOrderWidget.optionsList()
+			self.settings.setValue("PreferredExtensionOrder", json.dumps(extension_options))
+			self.settings.setValue("PreferredQualityOrder", json.dumps(quality_options))
 			self.close()
 
 
@@ -156,10 +233,9 @@ class ConfigurableToolBar(QToolBar):
 
 	def loadSettings(self):
 		self.settings.beginGroup(self.__class__.__name__)
-		visible_actions = self.settings.value("VisibleActions", [a.text() for a in self.actions() if a.text()])
-		if not isinstance(visible_actions, list):
-			visible_actions = json.loads(visible_actions)
-		self.visible_actions = visible_actions
+		self.visible_actions = self.settings.value("VisibleActions", [])
+		if not isinstance(self.visible_actions, list):
+			self.visible_actions = json.loads(self.visible_actions)
 		self.settings.endGroup()
 
 	def writeSettings(self):
@@ -194,11 +270,12 @@ class ConfigurableToolBar(QToolBar):
 				return
 
 	def addAction(self, action):
-		visible = action.text() in self.visible_actions
+		visible = action.text() in self.visible_actions or len(self.visible_actions) == 0
 		action.setVisible(visible)
 		if self.seperators_between_actions:
 			self.addSeparator().setVisible(visible)
 		QToolBar.addAction(self, action)
+
 
 class SettingsToolBar(ConfigurableToolBar):
 	seperators_between_actions = True
@@ -213,10 +290,10 @@ class SettingsToolBar(ConfigurableToolBar):
 		self.settingsModel = settings_model
 		self.mapper = SettingsWidgetMapper(settings_model)
 		self.mapper.setSubmitPolicy(QDataWidgetMapper.AutoSubmit)
-		self.mapper.toFirst()
 
 		self.addWidget(self.label)
 		self.addAction(SpinBoxAction(self, self.mapper, "DownloadSpeedLimit"))
 		self.addAction(SpinBoxAction(self, self.mapper, "PoolUpdateFrequency"))
 		self.addAction(SpinBoxAction(self, self.mapper, "DownloadProcesses"))
 		self.addAction(SpinBoxAction(self, self.mapper, "ExtractionProcesses"))
+		self.mapper.toFirst()

@@ -5,13 +5,13 @@ from .common import InfoExtractor
 class StatigramIE(InfoExtractor):
     _VALID_URL = r'(?:http://)?(?:www\.)?statigr\.am/p/([^/]+)'
     _TEST = {
-        'url': 'http://statigr.am/p/484091715184808010_284179915',
-        'file': '484091715184808010_284179915.mp4',
-        'md5': 'deda4ff333abe2e118740321e992605b',
+        'url': 'http://statigr.am/p/522207370455279102_24101272',
+        'file': '522207370455279102_24101272.mp4',
+        'md5': '6eb93b882a3ded7c378ee1d6884b1814',
         'info_dict': {
-            "uploader_id": "videoseconds", 
-            "title": "Instagram photo by @videoseconds"
-        }
+            'uploader_id': 'aguynamedpatrick',
+            'title': 'Instagram photo by @aguynamedpatrick (Patrick Janelle)',
+        },
     }
 
     def _real_extract(self, url):
