@@ -7,15 +7,25 @@ from .common import InfoExtractor
 
 
 class TudouIE(InfoExtractor):
-    _VALID_URL = r'(?:http://)?(?:www\.)?tudou\.com/(?:listplay|programs)/(?:view|(.+?))/(?:([^/]+)|([^/]+))(?:\.html)?'
-    _TEST = {
+    _VALID_URL = r'(?:http://)?(?:www\.)?tudou\.com/(?:listplay|programs|albumplay)/(?:view|(.+?))/(?:([^/]+)|([^/]+))(?:\.html)?'
+    _TESTS = [{
         'url': 'http://www.tudou.com/listplay/zzdE77v6Mmo/2xN2duXMxmw.html',
         'file': '159448201.f4v',
         'md5': '140a49ed444bd22f93330985d8475fcb',
         'info_dict': {
             "title": "卡马乔国足开大脚长传冲吊集锦"
         }
-    }
+    },
+    {
+        'url': 'http://www.tudou.com/albumplay/TenTw_JgiPM/PzsAs5usU9A.html',
+        'file': 'todo.mp4',
+        'md5': 'todo.mp4',
+        'info_dict': {
+            'title': 'todo.mp4',
+        },
+        'add_ie': ['Youku'],
+        'skip': 'Only works from China'
+    }]
 
     def _url_for_id(self, id, quality = None):
         info_url = "http://v2.tudou.com/f?id="+str(id)
@@ -29,14 +39,19 @@ class TudouIE(InfoExtractor):
         mobj = re.match(self._VALID_URL, url)
         video_id = mobj.group(2)
         webpage = self._download_webpage(url, video_id)
-        title = re.search(",kw:\"(.+)\"",webpage)
-        if title is None:
-            title = re.search(",kw: \'(.+)\'",webpage)
-        title = title.group(1)
-        thumbnail_url = re.search(",pic: \'(.+?)\'",webpage)
-        if thumbnail_url is None:
-            thumbnail_url = re.search(",pic:\"(.+?)\"",webpage)
-        thumbnail_url = thumbnail_url.group(1)
+
+        m = re.search(r'vcode:\s*[\'"](.+?)[\'"]', webpage)
+        if m and m.group(1):
+            return {
+                '_type': 'url',
+                'url': 'youku:' + m.group(1),
+                'ie_key': 'Youku'
+            }
+
+        title = self._search_regex(
+            r",kw:\s*['\"](.+?)[\"']", webpage, 'title')
+        thumbnail_url = self._search_regex(
+            r",pic:\s*[\"'](.+?)[\"']", webpage, 'thumbnail URL', fatal=False)
 
         segs_json = self._search_regex(r'segs: \'(.*)\'', webpage, 'segments')
         segments = json.loads(segs_json)

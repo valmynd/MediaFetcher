@@ -23,9 +23,11 @@ from ..utils import (
     compat_urllib_error,
     compat_urllib_parse,
     compat_urllib_request,
+    compat_urlparse,
     compat_str,
 
     clean_html,
+    get_cachedir,
     get_element_by_id,
     ExtractorError,
     unescapeHTML,
@@ -420,8 +422,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
         # Read from filesystem cache
         func_id = '%s_%s_%d' % (player_type, player_id, slen)
         assert os.path.basename(func_id) == func_id
-        cache_dir = self._downloader.params.get('cachedir',
-                                                '~/.youtube-dl/cache')
+        cache_dir = get_cachedir(self._downloader.params)
 
         cache_enabled = cache_dir is not None
         if cache_enabled:
@@ -1036,12 +1037,13 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
 
         if player_url is not None:
             try:
-                if player_url not in self._player_cache:
+                player_id = (player_url, len(s))
+                if player_id not in self._player_cache:
                     func = self._extract_signature_function(
                         video_id, player_url, len(s)
                     )
-                    self._player_cache[player_url] = func
-                func = self._player_cache[player_url]
+                    self._player_cache[player_id] = func
+                func = self._player_cache[player_id]
                 if self._downloader.params.get('youtube_print_sig_code'):
                     self._print_sig_code(func, len(s))
                 return func(s)
@@ -1086,7 +1088,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
         elif len(s) == 83:
             return s[80:63:-1] + s[0] + s[62:0:-1] + s[63]
         elif len(s) == 82:
-            return s[80:73:-1] + s[81] + s[72:54:-1] + s[2] + s[53:43:-1] + s[0] + s[42:2:-1] + s[43] + s[1] + s[54]
+            return s[80:37:-1] + s[7] + s[36:7:-1] + s[0] + s[6:0:-1] + s[37]
         elif len(s) == 81:
             return s[56] + s[79:56:-1] + s[41] + s[55:41:-1] + s[80] + s[40:34:-1] + s[0] + s[33:29:-1] + s[34] + s[28:9:-1] + s[29] + s[8:0:-1] + s[9]
         elif len(s) == 80:
@@ -1114,6 +1116,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
                 'lang': lang,
                 'v': video_id,
                 'fmt': self._downloader.params.get('subtitlesformat'),
+                'name': l[0],
             })
             url = 'http://www.youtube.com/api/timedtext?' + params
             sub_lang_list[lang] = url
@@ -1147,7 +1150,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
             list_page = self._download_webpage(list_url, video_id)
             caption_list = xml.etree.ElementTree.fromstring(list_page.encode('utf-8'))
             original_lang_node = caption_list.find('track')
-            if original_lang_node.attrib.get('kind') != 'asr' :
+            if original_lang_node is None or original_lang_node.attrib.get('kind') != 'asr' :
                 self._downloader.report_warning('Video doesn\'t have automatic captions')
                 return {}
             original_lang = original_lang_node.attrib['lang_code']
@@ -1246,10 +1249,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
             url_map[itag] = format_url
         return url_map
 
-    def _real_extract(self, url):
-        if re.match(r'(?:https?://)?[^/]+/watch\?feature=[a-z_]+$', url):
-            self._downloader.report_warning('Did you forget to quote the URL? Remember that & is a meta-character in most shells, so you want to put the URL in quotes, like  youtube-dl \'http://www.youtube.com/watch?feature=foo&v=BaW_jenozKc\' (or simply  youtube-dl BaW_jenozKc  ).')
+    def _extract_annotations(self, video_id):
+        url = 'https://www.youtube.com/annotations_invideo?features=1&legacy=1&video_id=%s' % video_id
+        return self._download_webpage(url, video_id, note='Searching for annotations.', errnote='Unable to download video annotations.')
 
+    def _real_extract(self, url):
         # Extract original video URL from URL with redirection, like age verification, using next_url parameter
         mobj = re.search(self._NEXT_URL_RE, url)
         if mobj:
@@ -1332,9 +1336,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
             self._downloader.report_warning('unable to extract uploader nickname')
 
         # title
-        if 'title' not in video_info:
-            raise ExtractorError('Unable to extract video title')
-        video_title = compat_urllib_parse.unquote_plus(video_info['title'][0])
+        if 'title' in video_info:
+            video_title = compat_urllib_parse.unquote_plus(video_info['title'][0])
+        else:
+            self._downloader.report_warning('Unable to extract video title')
+            video_title = '_'
 
         # thumbnail image
         # We try first to get a high quality image:
@@ -1379,6 +1385,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
         else:
             video_duration = compat_urllib_parse.unquote_plus(video_info['length_seconds'][0])
 
+        # annotations
+        video_annotations = None
+        if self._downloader.params.get('writeannotations', False):
+                video_annotations = self._extract_annotations(video_id)
+
         # Decide which formats to download
 
         try:
@@ -1389,6 +1400,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
             args = info['args']
             # Easy way to know if the 's' value is in url_encoded_fmt_stream_map
             # this signatures are encrypted
+            if 'url_encoded_fmt_stream_map' not in args:
+                raise ValueError('No stream_map present')  # caught below
             m_s = re.search(r'[&,]s=', args['url_encoded_fmt_stream_map'])
             if m_s is not None:
                 self.to_screen('%s: Encrypted signatures detected.' % video_id)
@@ -1488,7 +1501,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor, SubtitlesInfoExtractor):
                 'description':  video_description,
                 'player_url':   player_url,
                 'subtitles':    video_subtitles,
-                'duration':     video_duration
+                'duration':     video_duration,
+                'age_limit':    18 if age_gate else 0,
+                'annotations':  video_annotations
             })
         return results
 
@@ -1522,9 +1537,19 @@ class YoutubePlaylistIE(InfoExtractor):
         mobj = re.match(self._VALID_URL, url, re.VERBOSE)
         if mobj is None:
             raise ExtractorError('Invalid URL: %s' % url)
+        playlist_id = mobj.group(1) or mobj.group(2)
+
+        # Check if it's a video-specific URL
+        query_dict = compat_urlparse.parse_qs(compat_urlparse.urlparse(url).query)
+        if 'v' in query_dict:
+            video_id = query_dict['v'][0]
+            if self._downloader.params.get('noplaylist'):
+                self.to_screen('Downloading just video %s because of --no-playlist' % video_id)
+                return self.url_result('https://www.youtube.com/watch?v=' + video_id, 'Youtube')
+            else:
+                self.to_screen('Downloading playlist PL%s - add --no-playlist to just download video %s' % (playlist_id, video_id))
 
         # Download playlist videos from API
-        playlist_id = mobj.group(1) or mobj.group(2)
         videos = []
 
         for page_num in itertools.count(1):
@@ -1619,7 +1644,7 @@ class YoutubeChannelIE(InfoExtractor):
 
 class YoutubeUserIE(InfoExtractor):
     IE_DESC = 'YouTube.com user videos (URL or "ytuser" keyword)'
-    _VALID_URL = r'(?:(?:(?:https?://)?(?:\w+\.)?youtube\.com/(?:user/)?)|ytuser:)(?!feed/)([A-Za-z0-9_-]+)'
+    _VALID_URL = r'(?:(?:(?:https?://)?(?:\w+\.)?youtube\.com/(?:user/)?(?!(?:attribution_link|watch)(?:$|[^a-z_A-Z0-9-])))|ytuser:)(?!feed/)([A-Za-z0-9_-]+)'
     _TEMPLATE_URL = 'http://gdata.youtube.com/feeds/api/users/%s'
     _GDATA_PAGE_SIZE = 50
     _GDATA_URL = 'http://gdata.youtube.com/feeds/api/users/%s/uploads?max-results=%d&start-index=%d&alt=json'
@@ -1812,3 +1837,18 @@ class YoutubeFavouritesIE(YoutubeBaseInfoExtractor):
         webpage = self._download_webpage('https://www.youtube.com/my_favorites', 'Youtube Favourites videos')
         playlist_id = self._search_regex(r'list=(.+?)["&]', webpage, 'favourites playlist id')
         return self.url_result(playlist_id, 'YoutubePlaylist')
+
+
+class YoutubeTruncatedURLIE(InfoExtractor):
+    IE_NAME = 'youtube:truncated_url'
+    IE_DESC = False  # Do not list
+    _VALID_URL = r'(?:https?://)?[^/]+/watch\?feature=[a-z_]+$'
+
+    def _real_extract(self, url):
+        raise ExtractorError(
+            'Did you forget to quote the URL? Remember that & is a meta '
+            'character in most shells, so you want to put the URL in quotes, '
+            'like  youtube-dl '
+            '\'http://www.youtube.com/watch?feature=foo&v=BaW_jenozKc\''
+            ' (or simply  youtube-dl BaW_jenozKc  ).',
+            expected=True)

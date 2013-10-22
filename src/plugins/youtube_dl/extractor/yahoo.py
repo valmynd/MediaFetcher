@@ -17,17 +17,21 @@ class YahooIE(InfoExtractor):
     _TESTS = [
         {
             'url': 'http://screen.yahoo.com/julian-smith-travis-legg-watch-214727115.html',
-            'file': '214727115.mp4',
+            'file': '214727115.flv',
             'info_dict': {
                 'title': 'Julian Smith & Travis Legg Watch Julian Smith',
                 'description': 'Julian and Travis watch Julian Smith',
+            },
+            'params': {
+                # Requires rtmpdump
+                'skip_download': True,
             },
         },
         {
             'url': 'http://screen.yahoo.com/wired/codefellas-s1-ep12-cougar-lies-103000935.html',
             'file': '103000935.flv',
             'info_dict': {
-                'title': 'The Cougar Lies with Spanish Moss',
+                'title': 'Codefellas - The Cougar Lies with Spanish Moss',
                 'description': 'Agent Topple\'s mustache does its dirty work, and Nicole brokers a deal for peace. But why is the NSA collecting millions of Instagram brunch photos? And if your waffles have nothing to hide, what are they so worried about?',
             },
             'params': {
@@ -46,6 +50,21 @@ class YahooIE(InfoExtractor):
             webpage, 'items', flags=re.MULTILINE)
         items = json.loads(items_json)
         info = items['mediaItems']['query']['results']['mediaObj'][0]
+        # The 'meta' field is not always in the video webpage, we request it
+        # from another page
+        long_id = info['id']
+        query = ('SELECT * FROM yahoo.media.video.streams WHERE id="%s"'
+                 ' AND plrs="86Gj0vCaSzV_Iuf6hNylf2"' % long_id)
+        data = compat_urllib_parse.urlencode({
+            'q': query,
+            'env': 'prod',
+            'format': 'json',
+        })
+        query_result_json = self._download_webpage(
+            'http://video.query.yahoo.com/v1/public/yql?' + data,
+            video_id, 'Downloading video info')
+        query_result = json.loads(query_result_json)
+        info = query_result['query']['results']['mediaObj'][0]
         meta = info['meta']
 
         formats = []

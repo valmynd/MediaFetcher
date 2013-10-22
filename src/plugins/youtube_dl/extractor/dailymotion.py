@@ -10,25 +10,49 @@ from ..utils import (
     compat_str,
     get_element_by_attribute,
     get_element_by_id,
+    orderedSet,
 
     ExtractorError,
 )
 
+class DailymotionBaseInfoExtractor(InfoExtractor):
+    @staticmethod
+    def _build_request(url):
+        """Build a request with the family filter disabled"""
+        request = compat_urllib_request.Request(url)
+        request.add_header('Cookie', 'family_filter=off')
+        return request
 
-class DailymotionIE(SubtitlesInfoExtractor):
+class DailymotionIE(DailymotionBaseInfoExtractor, SubtitlesInfoExtractor):
     """Information Extractor for Dailymotion"""
 
     _VALID_URL = r'(?i)(?:https?://)?(?:www\.)?dailymotion\.[a-z]{2,3}/(?:embed/)?video/([^/]+)'
     IE_NAME = 'dailymotion'
-    _TEST = {
-        'url': 'http://www.dailymotion.com/video/x33vw9_tutoriel-de-youtubeur-dl-des-video_tech',
-        'file': 'x33vw9.mp4',
-        'md5': '392c4b85a60a90dc4792da41ce3144eb',
-        'info_dict': {
-            "uploader": "Amphora Alex and Van .", 
-            "title": "Tutoriel de Youtubeur\"DL DES VIDEO DE YOUTUBE\""
-        }
-    }
+    _TESTS = [
+        {
+            'url': 'http://www.dailymotion.com/video/x33vw9_tutoriel-de-youtubeur-dl-des-video_tech',
+            'file': 'x33vw9.mp4',
+            'md5': '392c4b85a60a90dc4792da41ce3144eb',
+            'info_dict': {
+                "uploader": "Amphora Alex and Van .", 
+                "title": "Tutoriel de Youtubeur\"DL DES VIDEO DE YOUTUBE\""
+            }
+        },
+        # Vevo video
+        {
+            'url': 'http://www.dailymotion.com/video/x149uew_katy-perry-roar-official_musi',
+            'file': 'USUV71301934.mp4',
+            'info_dict': {
+                'title': 'Roar (Official)',
+                'uploader': 'Katy Perry',
+                'upload_date': '20130905',
+            },
+            'params': {
+                'skip_download': True,
+            },
+            'skip': 'VEVO is only available in some countries',
+        },
+    ]
 
     def _real_extract(self, url):
         # Extract id and simplified title from URL
@@ -40,12 +64,20 @@ class DailymotionIE(SubtitlesInfoExtractor):
         url = 'http://www.dailymotion.com/video/%s' % video_id
 
         # Retrieve video webpage to extract further information
-        request = compat_urllib_request.Request(url)
-        request.add_header('Cookie', 'family_filter=off')
+        request = self._build_request(url)
         webpage = self._download_webpage(request, video_id)
 
         # Extract URL, uploader and title from webpage
         self.report_extraction(video_id)
+
+        # It may just embed a vevo video:
+        m_vevo = re.search(
+            r'<link rel="video_src" href="[^"]*?vevo.com[^"]*?videoId=(?P<id>[\w]*)',
+            webpage)
+        if m_vevo is not None:
+            vevo_id = m_vevo.group('id')
+            self.to_screen('Vevo video detected: %s' % vevo_id)
+            return self.url_result('vevo:%s' % vevo_id, ie='Vevo')
 
         video_uploader = self._search_regex([r'(?im)<span class="owner[^\"]+?">[^<]+?<a [^>]+?>([^<]+?)</a>',
                                              # Looking for official user
@@ -113,7 +145,7 @@ class DailymotionIE(SubtitlesInfoExtractor):
         return {}
 
 
-class DailymotionPlaylistIE(InfoExtractor):
+class DailymotionPlaylistIE(DailymotionBaseInfoExtractor):
     IE_NAME = 'dailymotion:playlist'
     _VALID_URL = r'(?:https?://)?(?:www\.)?dailymotion\.[a-z]{2,3}/playlist/(?P<id>.+?)/'
     _MORE_PAGES_INDICATOR = r'<div class="next">.*?<a.*?href="/playlist/.+?".*?>.*?</a>.*?</div>'
@@ -122,16 +154,17 @@ class DailymotionPlaylistIE(InfoExtractor):
     def _extract_entries(self, id):
         video_ids = []
         for pagenum in itertools.count(1):
-            webpage = self._download_webpage(self._PAGE_TEMPLATE % (id, pagenum),
+            request = self._build_request(self._PAGE_TEMPLATE % (id, pagenum))
+            webpage = self._download_webpage(request,
                                              id, 'Downloading page %s' % pagenum)
 
             playlist_el = get_element_by_attribute('class', 'video_list', webpage)
-            video_ids.extend(re.findall(r'data-id="(.+?)" data-ext-id', playlist_el))
+            video_ids.extend(re.findall(r'data-id="(.+?)"', playlist_el))
 
             if re.search(self._MORE_PAGES_INDICATOR, webpage, re.DOTALL) is None:
                 break
         return [self.url_result('http://www.dailymotion.com/video/%s' % video_id, 'Dailymotion')
-                   for video_id in video_ids]
+                   for video_id in orderedSet(video_ids)]
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)

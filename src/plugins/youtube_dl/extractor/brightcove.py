@@ -49,6 +49,13 @@ class BrightcoveIE(InfoExtractor):
         Build a Brightcove url from a xml string containing
         <object class="BrightcoveExperience">{params}</object>
         """
+
+        # Fix up some stupid HTML, see https://github.com/rg3/youtube-dl/issues/1553
+        object_str = re.sub(r'(<param name="[^"]+" value="[^"]+")>',
+                            lambda m: m.group(1) + '/>', object_str)
+        # Fix up some stupid XML, see https://github.com/rg3/youtube-dl/issues/1608
+        object_str = object_str.replace('<--', '<!--')
+
         object_doc = xml.etree.ElementTree.fromstring(object_str)
         assert 'BrightcoveExperience' in object_doc.attrib['class']
         params = {'flashID': object_doc.attrib['id'],
@@ -91,7 +98,10 @@ class BrightcoveIE(InfoExtractor):
         playlist_info = self._download_webpage(self._PLAYLIST_URL_TEMPLATE % player_key,
                                                player_key, 'Downloading playlist information')
 
-        playlist_info = json.loads(playlist_info)['videoList']
+        json_data = json.loads(playlist_info)
+        if 'videoList' not in json_data:
+            raise ExtractorError('Empty playlist')
+        playlist_info = json_data['videoList']
         videos = [self._extract_video_info(video_info) for video_info in playlist_info['mediaCollectionDTO']['videoDTOs']]
 
         return self.playlist_result(videos, playlist_id=playlist_info['id'],
