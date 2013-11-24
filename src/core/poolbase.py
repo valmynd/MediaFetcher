@@ -9,6 +9,8 @@ ___license___ = "GPL v3"
 
 
 class QueueProcess(Process):
+	Plugins = []
+
 	def __init__(self, task_queue, result_queue, function):
 		Process.__init__(self)
 		self.function = function
@@ -19,7 +21,8 @@ class QueueProcess(Process):
 		# if daemon is true, python will handle termination of the process
 		self.daemon = False
 
-	def load_plugins(self):
+	@staticmethod
+	def load_plugins():
 		# load plugins from plugin directory (needs to be called when the process is using the plugin mechanism)
 		filenames = os.listdir(os.path.dirname(os.path.realpath("../plugins")))
 		modules = [f.replace('.py', '') for f in filenames if f.endswith('.py') and f != '__init__']

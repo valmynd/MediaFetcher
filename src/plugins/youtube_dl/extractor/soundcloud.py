@@ -29,19 +29,37 @@ class SoundcloudIE(InfoExtractor):
                     )
                     '''
     IE_NAME = 'soundcloud'
-    _TEST = {
-        'url': 'http://soundcloud.com/ethmusic/lostin-powers-she-so-heavy',
-        'file': '62986583.mp3',
-        'md5': 'ebef0a451b909710ed1d7787dddbf0d7',
-        'info_dict': {
-            "upload_date": "20121011", 
-            "description": "No Downloads untill we record the finished version this weekend, i was too pumped n i had to post it , earl is prolly gonna b hella p.o'd", 
-            "uploader": "E.T. ExTerrestrial Music", 
-            "title": "Lostin Powers - She so Heavy (SneakPreview) Adrian Ackers Blueprint 1"
-        }
-    }
+    _TESTS = [
+        {
+            'url': 'http://soundcloud.com/ethmusic/lostin-powers-she-so-heavy',
+            'file': '62986583.mp3',
+            'md5': 'ebef0a451b909710ed1d7787dddbf0d7',
+            'info_dict': {
+                "upload_date": "20121011", 
+                "description": "No Downloads untill we record the finished version this weekend, i was too pumped n i had to post it , earl is prolly gonna b hella p.o'd", 
+                "uploader": "E.T. ExTerrestrial Music", 
+                "title": "Lostin Powers - She so Heavy (SneakPreview) Adrian Ackers Blueprint 1"
+            }
+        },
+        # not streamable song
+        {
+            'url': 'https://soundcloud.com/the-concept-band/goldrushed-mastered?in=the-concept-band/sets/the-royal-concept-ep',
+            'info_dict': {
+                'id': '47127627',
+                'ext': 'mp3',
+                'title': 'Goldrushed',
+                'uploader': 'The Royal Concept',
+                'upload_date': '20120521',
+            },
+            'params': {
+                # rtmp
+                'skip_download': True,
+            },
+        },
+    ]
 
     _CLIENT_ID = 'b45b1aa10f1ac2941910a7f0d10f8e28'
+    _IPHONE_CLIENT_ID = '376f225bf427445fc4bfb6b99b72e0bf'
 
     @classmethod
     def suitable(cls, url):
@@ -56,24 +74,48 @@ class SoundcloudIE(InfoExtractor):
         return 'http://api.soundcloud.com/resolve.json?url=' + url + '&client_id=' + cls._CLIENT_ID
 
     def _extract_info_dict(self, info, full_title=None, quiet=False):
-        video_id = info['id']
-        name = full_title or video_id
+        track_id = compat_str(info['id'])
+        name = full_title or track_id
         if quiet == False:
             self.report_extraction(name)
 
         thumbnail = info['artwork_url']
         if thumbnail is not None:
             thumbnail = thumbnail.replace('-large', '-t500x500')
-        return {
-            'id':       info['id'],
-            'url':      info['stream_url'] + '?client_id=' + self._CLIENT_ID,
+        result = {
+            'id':       track_id,
             'uploader': info['user']['username'],
             'upload_date': unified_strdate(info['created_at']),
             'title':    info['title'],
-            'ext':      'mp3',
+            'ext':      info.get('original_format', 'mp3'),
             'description': info['description'],
             'thumbnail': thumbnail,
         }
+        if info.get('downloadable', False):
+            # We can build a direct link to the song
+            result['url'] = 'https://api.soundcloud.com/tracks/{0}/download?client_id={1}'.format(track_id, self._CLIENT_ID)
+        else:
+            # We have to retrieve the url
+            stream_json = self._download_webpage(
+                'http://api.soundcloud.com/i1/tracks/{0}/streams?client_id={1}'.format(track_id, self._IPHONE_CLIENT_ID),
+                track_id, 'Downloading track url')
+            # There should be only one entry in the dictionary
+            key, stream_url = list(json.loads(stream_json).items())[0]
+            if key.startswith('http'):
+                result['url'] = stream_url
+            elif key.startswith('rtmp'):
+                # The url doesn't have an rtmp app, we have to extract the playpath
+                url, path = stream_url.split('mp3:', 1)
+                result.update({
+                    'url': url,
+                    'play_path': 'mp3:' + path,
+                })
+            else:
+                # We fallback to the stream_url in the original info, this
+                # cannot be always used, sometimes it can give an HTTP 404 error
+                result['url'] = info['stream_url'] + '?client_id=' + self._CLIENT_ID,
+
+        return result
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url, flags=re.VERBOSE)
@@ -106,70 +148,8 @@ class SoundcloudIE(InfoExtractor):
 class SoundcloudSetIE(SoundcloudIE):
     _VALID_URL = r'^(?:https?://)?(?:www\.)?soundcloud\.com/([\w\d-]+)/sets/([\w\d-]+)(?:[?].*)?$'
     IE_NAME = 'soundcloud:set'
-    _TEST = {
-        "url":"https://soundcloud.com/the-concept-band/sets/the-royal-concept-ep",
-        "playlist": [
-            {
-                "file":"30510138.mp3",
-                "md5":"f9136bf103901728f29e419d2c70f55d",
-                "info_dict": {
-                    "upload_date": "20111213",
-                    "description": "The Royal Concept from Stockholm\r\nFilip / Povel / David / Magnus\r\nwww.royalconceptband.com",
-                    "uploader": "The Royal Concept",
-                    "title": "D-D-Dance"
-                }
-            },
-            {
-                "file":"47127625.mp3",
-                "md5":"09b6758a018470570f8fd423c9453dd8",
-                "info_dict": {
-                    "upload_date": "20120521",
-                    "description": "The Royal Concept from Stockholm\r\nFilip / Povel / David / Magnus\r\nwww.royalconceptband.com",
-                    "uploader": "The Royal Concept",
-                    "title": "The Royal Concept - Gimme Twice"
-                }
-            },
-            {
-                "file":"47127627.mp3",
-                "md5":"154abd4e418cea19c3b901f1e1306d9c",
-                "info_dict": {
-                    "upload_date": "20120521",
-                    "uploader": "The Royal Concept",
-                    "title": "Goldrushed"
-                }
-            },
-            {
-                "file":"47127629.mp3",
-                "md5":"2f5471edc79ad3f33a683153e96a79c1",
-                "info_dict": {
-                    "upload_date": "20120521",
-                    "description": "The Royal Concept from Stockholm\r\nFilip / Povel / David / Magnus\r\nwww.royalconceptband.com",
-                    "uploader": "The Royal Concept",
-                    "title": "In the End"
-                }
-            },
-            {
-                "file":"47127631.mp3",
-                "md5":"f9ba87aa940af7213f98949254f1c6e2",
-                "info_dict": {
-                    "upload_date": "20120521",
-                    "description": "The Royal Concept from Stockholm\r\nFilip / David / Povel / Magnus\r\nwww.theroyalconceptband.com",
-                    "uploader": "The Royal Concept",
-                    "title": "Knocked Up"
-                }
-            },
-            {
-                "file":"75206121.mp3",
-                "md5":"f9d1fe9406717e302980c30de4af9353",
-                "info_dict": {
-                    "upload_date": "20130116",
-                    "description": "The unreleased track World on Fire premiered on the CW's hit show Arrow (8pm/7pm central).  \r\nAs a gift to our fans we would like to offer you a free download of the track!  ",
-                    "uploader": "The Royal Concept",
-                    "title": "World On Fire"
-                }
-            }
-        ]
-    }
+    # it's in tests/test_playlists.py
+    _TESTS = []
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
@@ -188,7 +168,6 @@ class SoundcloudSetIE(SoundcloudIE):
         resolv_url = self._resolv_url(url)
         info_json = self._download_webpage(resolv_url, full_title)
 
-        videos = []
         info = json.loads(info_json)
         if 'errors' in info:
             for err in info['errors']:
@@ -208,7 +187,7 @@ class SoundcloudUserIE(SoundcloudIE):
     IE_NAME = 'soundcloud:user'
 
     # it's in tests/test_playlists.py
-    _TEST = None
+    _TESTS = []
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)

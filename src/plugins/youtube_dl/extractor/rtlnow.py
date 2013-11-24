@@ -63,19 +63,6 @@ class RTLnowIE(InfoExtractor):
         },
     },
     {
-        'url': 'http://www.rtlnitronow.de/recht-ordnung/lebensmittelkontrolle-erlangenordnungsamt-berlin.php?film_id=127367&player=1&season=1',
-        'file': '127367.flv',
-        'info_dict': {
-            'upload_date': '20130926', 
-            'title': 'Recht & Ordnung - Lebensmittelkontrolle Erlangen/Ordnungsamt...',
-            'description': 'Lebensmittelkontrolle Erlangen/Ordnungsamt Berlin',
-            'thumbnail': 'http://autoimg.static-fra.de/nitronow/344787/1500x1500/image2.jpg',
-        },
-        'params': {
-            'skip_download': True,
-        },
-    },
-    {
         'url': 'http://www.n-tvnow.de/top-gear/episode-1-2013-01-01-00-00-00.php?film_id=124903&player=1&season=10',
         'file': '124903.flv',
         'info_dict': {

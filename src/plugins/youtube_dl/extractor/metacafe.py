@@ -20,10 +20,12 @@ class MetacafeIE(InfoExtractor):
     _DISCLAIMER = 'http://www.metacafe.com/family_filter/'
     _FILTER_POST = 'http://www.metacafe.com/f/index.php?inputType=filter&controllerGroup=user'
     IE_NAME = 'metacafe'
-    _TESTS = [{
+    _TESTS = [
+    # Youtube video
+    {
         "add_ie": ["Youtube"],
         "url":  "http://metacafe.com/watch/yt-_aUehQsCQtM/the_electric_company_short_i_pbs_kids_go/",
-        "file":  "_aUehQsCQtM.flv",
+        "file":  "_aUehQsCQtM.mp4",
         "info_dict": {
             "upload_date": "20090102",
             "title": "The Electric Company | \"Short I\" | PBS KIDS GO!",
@@ -32,15 +34,42 @@ class MetacafeIE(InfoExtractor):
             "uploader_id": "PBS"
         }
     },
+    # Normal metacafe video
+    {
+        'url': 'http://www.metacafe.com/watch/11121940/news_stuff_you_wont_do_with_your_playstation_4/',
+        'md5': '6e0bca200eaad2552e6915ed6fd4d9ad',
+        'info_dict': {
+            'id': '11121940',
+            'ext': 'mp4',
+            'title': 'News: Stuff You Won\'t Do with Your PlayStation 4',
+            'uploader': 'ign',
+            'description': 'Sony released a massive FAQ on the PlayStation Blog detailing the PS4\'s capabilities and limitations.',
+        },
+    },
+    # AnyClip video
     {
         "url": "http://www.metacafe.com/watch/an-dVVXnuY7Jh77J/the_andromeda_strain_1971_stop_the_bomb_part_3/",
         "file": "an-dVVXnuY7Jh77J.mp4",
         "info_dict": {
             "title": "The Andromeda Strain (1971): Stop the Bomb Part 3",
             "uploader": "anyclip",
-            "description": "md5:38c711dd98f5bb87acf973d573442e67"
-        }
-    }]
+            "description": "md5:38c711dd98f5bb87acf973d573442e67",
+        },
+    },
+    # age-restricted video
+    {
+        'url': 'http://www.metacafe.com/watch/5186653/bbc_internal_christmas_tape_79_uncensored_outtakes_etc/',
+        'md5': '98dde7c1a35d02178e8ab7560fe8bd09',
+        'info_dict': {
+            'id': '5186653',
+            'ext': 'mp4',
+            'title': 'BBC INTERNAL Christmas Tape \'79 - UNCENSORED Outtakes, Etc.',
+            'uploader': 'Dwayne Pipe',
+            'description': 'md5:950bf4c581e2c059911fa3ffbe377e4b',
+            'age_limit': 18,
+        },
+    },
+    ]
 
 
     def report_disclaimer(self):
@@ -62,6 +91,7 @@ class MetacafeIE(InfoExtractor):
             'submit': "Continue - I'm over 18",
             }
         request = compat_urllib_request.Request(self._FILTER_POST, compat_urllib_parse.urlencode(disclaimer_form))
+        request.add_header('Content-Type', 'application/x-www-form-urlencoded')
         try:
             self.report_age_confirmation()
             compat_urllib_request.urlopen(request).read()
@@ -83,7 +113,12 @@ class MetacafeIE(InfoExtractor):
 
         # Retrieve video webpage to extract further information
         req = compat_urllib_request.Request('http://www.metacafe.com/watch/%s/' % video_id)
-        req.headers['Cookie'] = 'flashVersion=0;'
+
+        # AnyClip videos require the flashversion cookie so that we get the link
+        # to the mp4 file
+        mobj_an = re.match(r'^an-(.*?)$', video_id)
+        if mobj_an:
+            req.headers['Cookie'] = 'flashVersion=0;'
         webpage = self._download_webpage(req, video_id)
 
         # Extract URL, uploader and title from webpage
@@ -125,6 +160,11 @@ class MetacafeIE(InfoExtractor):
                 r'submitter=(.*?);|googletag\.pubads\(\)\.setTargeting\("(?:channel|submiter)","([^"]+)"\);',
                 webpage, 'uploader nickname', fatal=False)
 
+        if re.search(r'"contentRating":"restricted"', webpage) is not None:
+            age_limit = 18
+        else:
+            age_limit = 0
+
         return {
             '_type':    'video',
             'id':       video_id,
@@ -134,4 +174,5 @@ class MetacafeIE(InfoExtractor):
             'upload_date':  None,
             'title':    video_title,
             'ext':      video_ext,
+            'age_limit': age_limit,
         }

@@ -7,11 +7,10 @@ ___license___ = "GPL v3"
 class DownloadProcess(QueueProcess):
 	def __init__(self, task_queue, result_queue):
 		QueueProcess.__init__(self, task_queue, result_queue, function=self.download)
-		self.load_plugins()
 
 	def download(self, url, path, filename, download_url, player_url):
 		# TODO: download_url als identifier instead of URL
-		self.plugins[0].download(url, path, filename, download_url, player_url)
+		self.Plugins[0].download(url, path, filename, download_url, player_url)
 
 
 class DownloadPool(QueuePool):

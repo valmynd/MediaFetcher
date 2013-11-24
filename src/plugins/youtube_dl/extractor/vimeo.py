@@ -1,3 +1,4 @@
+# encoding: utf-8
 import json
 import re
 import itertools
@@ -10,6 +11,7 @@ from ..utils import (
     clean_html,
     get_element_by_attribute,
     ExtractorError,
+    RegexNotFoundError,
     std_headers,
     unsmuggle_url,
 )
@@ -18,12 +20,12 @@ class VimeoIE(InfoExtractor):
     """Information extractor for vimeo.com."""
 
     # _VALID_URL matches Vimeo URLs
-    _VALID_URL = r'(?P<proto>https?://)?(?:(?:www|player)\.)?vimeo(?P<pro>pro)?\.com/(?:(?:(?:groups|album)/[^/]+)|(?:.*?)/)?(?P<direct_link>play_redirect_hls\?clip_id=)?(?:videos?/)?(?P<id>[0-9]+)/?(?:[?].*)?$'
+    _VALID_URL = r'(?P<proto>https?://)?(?:(?:www|(?P<player>player))\.)?vimeo(?P<pro>pro)?\.com/(?:(?:(?:groups|album)/[^/]+)|(?:.*?)/)?(?P<direct_link>play_redirect_hls\?clip_id=)?(?:videos?/)?(?P<id>[0-9]+)/?(?:[?].*)?(?:#.*)?$'
     _NETRC_MACHINE = 'vimeo'
     IE_NAME = 'vimeo'
     _TESTS = [
         {
-            'url': 'http://vimeo.com/56015672',
+            'url': 'http://vimeo.com/56015672#at=0',
             'file': '56015672.mp4',
             'md5': '8879b6cc097e987f02484baf890129e5',
             'info_dict': {
@@ -54,7 +56,22 @@ class VimeoIE(InfoExtractor):
                 'title': 'Kathy Sierra: Building the minimum Badass User, Business of Software',
                 'uploader': 'The BLN & Business of Software',
             },
-        }
+        },
+        {
+            'url': 'http://vimeo.com/68375962',
+            'file': '68375962.mp4',
+            'md5': 'aaf896bdb7ddd6476df50007a0ac0ae7',
+            'note': 'Video protected with password',
+            'info_dict': {
+                'title': 'youtube-dl password protected test video',
+                'upload_date': '20130614',
+                'uploader_id': 'user18948128',
+                'uploader': 'Jaime Marquínez Ferrándiz',
+            },
+            'params': {
+                'videopassword': 'youtube-dl',
+            },
+        },
     ]
 
     def _login(self):
@@ -111,11 +128,9 @@ class VimeoIE(InfoExtractor):
             raise ExtractorError('Invalid URL: %s' % url)
 
         video_id = mobj.group('id')
-        if not mobj.group('proto'):
-            url = 'https://' + url
-        elif mobj.group('pro'):
+        if mobj.group('pro') or mobj.group('player'):
             url = 'http://player.vimeo.com/video/' + video_id
-        elif mobj.group('direct_link'):
+        else:
             url = 'https://vimeo.com/' + video_id
 
         # Retrieve video webpage to extract further information
@@ -129,18 +144,26 @@ class VimeoIE(InfoExtractor):
 
         # Extract the config JSON
         try:
-            config = self._search_regex([r' = {config:({.+?}),assets:', r'c=({.+?);'],
-                webpage, 'info section', flags=re.DOTALL)
-            config = json.loads(config)
-        except:
+            try:
+                config_url = self._html_search_regex(
+                    r' data-config-url="(.+?)"', webpage, 'config URL')
+                config_json = self._download_webpage(config_url, video_id)
+                config = json.loads(config_json)
+            except RegexNotFoundError:
+                # For pro videos or player.vimeo.com urls
+                config = self._search_regex([r' = {config:({.+?}),assets:', r'(?:c|b)=({.+?});'],
+                    webpage, 'info section', flags=re.DOTALL)
+                config = json.loads(config)
+        except Exception as e:
             if re.search('The creator of this video has not given you permission to embed it on this domain.', webpage):
                 raise ExtractorError('The author has restricted the access to this video, try with the "--referer" option')
 
-            if re.search('If so please provide the correct password.', webpage):
+            if re.search('<form[^>]+?id="pw_form"', webpage) is not None:
                 self._verify_video_password(url, video_id, webpage)
                 return self._real_extract(url)
             else:
-                raise ExtractorError('Unable to extract info section')
+                raise ExtractorError('Unable to extract info section',
+                                     cause=e)
 
         # Extract title
         video_title = config["video"]["title"]
@@ -180,7 +203,7 @@ class VimeoIE(InfoExtractor):
         # Vimeo specific: extract video codec and quality information
         # First consider quality, then codecs, then take everything
         codecs = [('vp6', 'flv'), ('vp8', 'flv'), ('h264', 'mp4')]
-        files = { 'hd': [], 'sd': [], 'other': []}
+        files = {'hd': [], 'sd': [], 'other': []}
         config_files = config["video"].get("files") or config["request"].get("files")
         for codec_name, codec_extension in codecs:
             for quality in config_files.get(codec_name, []):
@@ -209,7 +232,7 @@ class VimeoIE(InfoExtractor):
         if len(formats) == 0:
             raise ExtractorError('No known codec found')
 
-        return [{
+        return {
             'id':       video_id,
             'uploader': video_uploader,
             'uploader_id': video_uploader_id,
@@ -218,7 +241,8 @@ class VimeoIE(InfoExtractor):
             'thumbnail':    video_thumbnail,
             'description':  video_description,
             'formats': formats,
-        }]
+            'webpage_url': url,
+        }
 
 
 class VimeoChannelIE(InfoExtractor):

@@ -12,6 +12,7 @@ import os
 import pipes
 import platform
 import re
+import ssl
 import socket
 import sys
 import traceback
@@ -535,13 +536,31 @@ def formatSeconds(secs):
     else:
         return '%d' % secs
 
+
 def make_HTTPS_handler(opts):
-    if sys.version_info < (3,2):
-        # Python's 2.x handler is very simplistic
-        return compat_urllib_request.HTTPSHandler()
+    if sys.version_info < (3, 2):
+        import http.client
+
+        class HTTPSConnectionV3(http.client.HTTPSConnection):
+            def __init__(self, *args, **kwargs):
+                http.client.HTTPSConnection.__init__(self, *args, **kwargs)
+
+            def connect(self):
+                sock = socket.create_connection((self.host, self.port), self.timeout)
+                if self._tunnel_host:
+                    self.sock = sock
+                    self._tunnel()
+                try:
+                    self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file, ssl_version=ssl.PROTOCOL_SSLv3)
+                except ssl.SSLError as e:
+                    self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file, ssl_version=ssl.PROTOCOL_SSLv23)
+
+        class HTTPSHandlerV3(compat_urllib_request.HTTPSHandler):
+            def https_open(self, req):
+                return self.do_open(HTTPSConnectionV3, req)
+        return HTTPSHandlerV3()
     else:
-        import ssl
-        context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
         context.set_default_verify_paths()
         
         context.verify_mode = (ssl.CERT_NONE
@@ -570,6 +589,11 @@ class ExtractorError(Exception):
         if self.traceback is None:
             return None
         return ''.join(traceback.format_tb(self.traceback))
+
+
+class RegexNotFoundError(ExtractorError):
+    """Error when a regex didn't match"""
+    pass
 
 
 class DownloadError(Exception):
@@ -729,6 +753,8 @@ def unified_strdate(date_str):
         '%Y/%m/%d %H:%M:%S',
         '%d.%m.%Y %H:%M',
         '%Y-%m-%dT%H:%M:%SZ',
+        '%Y-%m-%dT%H:%M:%S.%fZ',
+        '%Y-%m-%dT%H:%M:%S.%f0Z',
         '%Y-%m-%dT%H:%M:%S',
     ]
     for expression in format_expressions:
@@ -944,7 +970,16 @@ class locked_file(object):
 
 
 def shell_quote(args):
-    return ' '.join(map(pipes.quote, args))
+    quoted_args = []
+    encoding = sys.getfilesystemencoding()
+    if encoding is None:
+        encoding = 'utf-8'
+    for a in args:
+        if isinstance(a, bytes):
+            # We may get a filename encoded with 'encodeFilename'
+            a = a.decode(encoding)
+        quoted_args.append(pipes.quote(a))
+    return ' '.join(quoted_args)
 
 
 def takewhile_inclusive(pred, seq):

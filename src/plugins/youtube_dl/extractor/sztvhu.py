@@ -15,7 +15,8 @@ class SztvHuIE(InfoExtractor):
         'info_dict': {
             "title": "Cserkészek népszerűsítették a környezettudatos életmódot a Savaria téren",
             "description": 'A zöld nap játékos ismeretterjesztő programjait a Magyar Cserkész Szövetség szervezte, akik az ország nyolc városában adják át tudásukat az érdeklődőknek. A PET...',
-        }
+        },
+        'skip': 'Service temporarily disabled as of 2013-11-20'
     }
 
     def _real_extract(self, url):

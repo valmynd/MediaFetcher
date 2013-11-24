@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from PySide.QtCore import *
 from PySide.QtGui import *
+from core.poolbase import QueueProcess
 from models.settingsmodel import SettingsModel
 from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
@@ -233,6 +234,6 @@ if __name__ == '__main__':
 	import sys
 
 	app = QApplication(sys.argv)
-	main_window = MainWindow()
-	main_window.show()
+	QueueProcess.load_plugins()
+	MainWindow().show()
 	sys.exit(app.exec_())

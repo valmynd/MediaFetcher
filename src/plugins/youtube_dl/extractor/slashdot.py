@@ -7,6 +7,7 @@ class SlashdotIE(InfoExtractor):
     _VALID_URL = r'https?://tv.slashdot.org/video/\?embed=(?P<id>.*?)(&|$)'
 
     _TEST = {
+        'add_ie': ['Ooyala'],
         'url': 'http://tv.slashdot.org/video/?embed=JscHMzZDplD0p-yNLOzTfzC3Q3xzJaUz',
         'file': 'JscHMzZDplD0p-yNLOzTfzC3Q3xzJaUz.mp4',
         'md5': 'd2222e7a4a4c1541b3e0cf732fb26735',

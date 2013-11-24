@@ -25,7 +25,7 @@ class GenericIE(InfoExtractor):
         {
             'url': 'http://www.hodiho.fr/2013/02/regis-plante-sa-jeep.html',
             'file': '13601338388002.mp4',
-            'md5': '85b90ccc9d73b4acd9138d3af4c27f89',
+            'md5': '6e15c93721d7ec9e9ca3fdbf07982cfd',
             'info_dict': {
                 "uploader": "www.hodiho.fr",
                 "title": "R\u00e9gis plante sa Jeep"
@@ -33,6 +33,7 @@ class GenericIE(InfoExtractor):
         },
         # embedded vimeo video
         {
+            'add_ie': ['Vimeo'],
             'url': 'http://skillsmatter.com/podcast/home/move-semanticsperfect-forwarding-and-rvalue-references',
             'file': '22444065.mp4',
             'md5': '2903896e23df39722c33f015af0666e2',
@@ -41,7 +42,35 @@ class GenericIE(InfoExtractor):
                 "uploader_id": "skillsmatter",
                 "uploader": "Skills Matter",
             }
-        }
+        },
+        # bandcamp page with custom domain
+        {
+            'add_ie': ['Bandcamp'],
+            'url': 'http://bronyrock.com/track/the-pony-mash',
+            'file': '3235767654.mp3',
+            'info_dict': {
+                'title': 'The Pony Mash',
+                'uploader': 'M_Pallante',
+            },
+            'skip': 'There is a limit of 200 free downloads / month for the test song',
+        },
+        # embedded brightcove video
+        # it also tests brightcove videos that need to set the 'Referer' in the
+        # http requests
+        {
+            'add_ie': ['Brightcove'],
+            'url': 'http://www.bfmtv.com/video/bfmbusiness/cours-bourse/cours-bourse-l-analyse-technique-154522/',
+            'info_dict': {
+                'id': '2765128793001',
+                'ext': 'mp4',
+                'title': 'Le cours de bourse : l’analyse technique',
+                'description': 'md5:7e9ad046e968cb2d1114004aba466fd9',
+                'uploader': 'BFM BUSINESS',
+            },
+            'params': {
+                'skip_download': True,
+            },
+        },
     ]
 
     def report_download_webpage(self, video_id):
@@ -133,11 +162,20 @@ class GenericIE(InfoExtractor):
             raise ExtractorError('Failed to download URL: %s' % url)
 
         self.report_extraction(video_id)
+
+        # it's tempting to parse this further, but you would
+        # have to take into account all the variations like
+        #   Video Title - Site Name
+        #   Site Name | Video Title
+        #   Video Title - Tagline | Site Name
+        # and so on and so forth; it's just not practical
+        video_title = self._html_search_regex(r'<title>(.*)</title>',
+            webpage, 'video title', default='video', flags=re.DOTALL)
+
         # Look for BrightCove:
-        m_brightcove = re.search(r'<object[^>]+?class=([\'"])[^>]*?BrightcoveExperience.*?\1.+?</object>', webpage, re.DOTALL)
-        if m_brightcove is not None:
+        bc_url = BrightcoveIE._extract_brightcove_url(webpage)
+        if bc_url is not None:
             self.to_screen('Brightcove video detected.')
-            bc_url = BrightcoveIE._build_brighcove_url(m_brightcove.group())
             return self.url_result(bc_url, 'Brightcove')
 
         # Look for embedded Vimeo player
@@ -149,11 +187,20 @@ class GenericIE(InfoExtractor):
             return self.url_result(surl, 'Vimeo')
 
         # Look for embedded YouTube player
-        mobj = re.search(
-            r'<iframe[^>]+?src="(https?://(?:www\.)?youtube.com/embed/.+?)"', webpage)
-        if mobj:
-            surl = unescapeHTML(mobj.group(1))
-            return self.url_result(surl, 'Youtube')
+        matches = re.findall(
+            r'<iframe[^>]+?src=(["\'])(?P<url>(?:https?:)?//(?:www\.)?youtube.com/embed/.+?)\1', webpage)
+        if matches:
+            urlrs = [self.url_result(unescapeHTML(tuppl[1]), 'Youtube')
+                     for tuppl in matches]
+            return self.playlist_result(
+                urlrs, playlist_id=video_id, playlist_title=video_title)
+
+        # Look for Bandcamp pages with custom domain
+        mobj = re.search(r'<meta property="og:url"[^>]*?content="(.*?bandcamp\.com.*?)"', webpage)
+        if mobj is not None:
+            burl = unescapeHTML(mobj.group(1))
+            # Don't set the extractor because it can be a track url or an album
+            return self.url_result(burl)
 
         # Start with something easy: JW Player in SWFObject
         mobj = re.search(r'flashvars: [\'"](?:.*&)?file=(http[^\'"&]*)', webpage)
@@ -191,15 +238,6 @@ class GenericIE(InfoExtractor):
         # here's a fun little line of code for you:
         video_extension = os.path.splitext(video_id)[1][1:]
         video_id = os.path.splitext(video_id)[0]
-
-        # it's tempting to parse this further, but you would
-        # have to take into account all the variations like
-        #   Video Title - Site Name
-        #   Site Name | Video Title
-        #   Video Title - Tagline | Site Name
-        # and so on and so forth; it's just not practical
-        video_title = self._html_search_regex(r'<title>(.*)</title>',
-            webpage, 'video title', default='video', flags=re.DOTALL)
 
         # video uploader is domain name
         video_uploader = self._search_regex(r'(?:https?://)?([^/]*)/.*',

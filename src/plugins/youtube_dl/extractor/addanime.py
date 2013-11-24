@@ -17,8 +17,8 @@ class AddAnimeIE(InfoExtractor):
     IE_NAME = 'AddAnime'
     _TEST = {
         'url': 'http://www.add-anime.net/watch_video.php?v=24MR3YO5SAS9',
-        'file': '24MR3YO5SAS9.flv',
-        'md5': '1036a0e0cd307b95bd8a8c3a5c8cfaf1',
+        'file': '24MR3YO5SAS9.mp4',
+        'md5': '72954ea10bc979ab5e2eb288b21425a0',
         'info_dict': {
             "description": "One Piece 606",
             "title": "One Piece 606"
@@ -31,7 +31,8 @@ class AddAnimeIE(InfoExtractor):
             video_id = mobj.group('video_id')
             webpage = self._download_webpage(url, video_id)
         except ExtractorError as ee:
-            if not isinstance(ee.cause, compat_HTTPError):
+            if not isinstance(ee.cause, compat_HTTPError) or \
+               ee.cause.code != 503:
                 raise
 
             redir_webpage = ee.cause.read().decode('utf-8')
@@ -60,16 +61,26 @@ class AddAnimeIE(InfoExtractor):
                 note='Confirming after redirect')
             webpage = self._download_webpage(url, video_id)
 
-        video_url = self._search_regex(r"var normal_video_file = '(.*?)';",
-                                       webpage, 'video file URL')
+        formats = []
+        for format_id in ('normal', 'hq'):
+            rex = r"var %s_video_file = '(.*?)';" % re.escape(format_id)
+            video_url = self._search_regex(rex, webpage, 'video file URLx',
+                                           fatal=False)
+            if not video_url:
+                continue
+            formats.append({
+                'format_id': format_id,
+                'url': video_url,
+            })
+        if not formats:
+            raise ExtractorError('Cannot find any video format!')
         video_title = self._og_search_title(webpage)
         video_description = self._og_search_description(webpage)
 
         return {
             '_type': 'video',
             'id':  video_id,
-            'url': video_url,
-            'ext': 'flv',
+            'formats': formats,
             'title': video_title,
             'description': video_description
         }

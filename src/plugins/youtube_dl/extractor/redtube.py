@@ -8,7 +8,9 @@ class RedTubeIE(InfoExtractor):
     _TEST = {
         'url': 'http://www.redtube.com/66418',
         'file': '66418.mp4',
-        'md5': '7b8c22b5e7098a3e1c09709df1126d2d',
+        # md5 varies from time to time, as in
+        # https://travis-ci.org/rg3/youtube-dl/jobs/14052463#L295
+        #u'md5': u'7b8c22b5e7098a3e1c09709df1126d2d',
         'info_dict': {
             "title": "Sucked on a toilet",
             "age_limit": 18,

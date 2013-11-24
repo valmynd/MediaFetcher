@@ -18,7 +18,7 @@ class YoukuIE(InfoExtractor):
         "url": "http://v.youku.com/v_show/id_XNDgyMDQ2NTQw.html",
         "file": "XNDgyMDQ2NTQw_part00.flv",
         "md5": "ffe3f2e435663dc2d1eea34faeff5b5b",
-        "params": { "test": False },
+        "params": {"test": False},
         "info_dict": {
             "title": "youtube-dl test video \"'/\\ä↭𝕐"
         }
@@ -37,8 +37,8 @@ class YoukuIE(InfoExtractor):
         source = list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/\:._-1234567890")
         seed = float(seed)
         for i in range(len(source)):
-            seed  =  (seed * 211 + 30031 ) % 65536
-            index  =  math.floor(seed / 65536 * len(source) )
+            seed  =  (seed * 211 + 30031) % 65536
+            index  =  math.floor(seed / 65536 * len(source))
             mixed.append(source[int(index)])
             source.remove(source[int(index)])
         #return ''.join(mixed)

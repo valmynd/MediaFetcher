@@ -72,7 +72,7 @@ class NHLIE(NHLBaseInfoExtractor):
 
 class NHLVideocenterIE(NHLBaseInfoExtractor):
     IE_NAME = 'nhl.com:videocenter'
-    IE_DESC = 'Download the first 12 videos from a videocenter category'
+    IE_DESC = 'NHL videocenter category'
     _VALID_URL = r'https?://video\.(?P<team>[^.]*)\.nhl\.com/videocenter/(console\?.*?catid=(?P<catid>[^&]+))?'
 
     @classmethod
@@ -90,8 +90,8 @@ class NHLVideocenterIE(NHLBaseInfoExtractor):
              r'{statusIndex:0,index:0,.*?id:(.*?),'],
             webpage, 'category id')
         playlist_title = self._html_search_regex(
-            r'\?catid=%s">(.*?)</a>' % cat_id,
-            webpage, 'playlist title', flags=re.DOTALL)
+            r'tab0"[^>]*?>(.*?)</td>',
+            webpage, 'playlist title', flags=re.DOTALL).lower().capitalize()
 
         data = compat_urllib_parse.urlencode({
             'cid': cat_id,

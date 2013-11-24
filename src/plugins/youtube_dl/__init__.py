@@ -32,6 +32,10 @@ __authors__  = (
     'Ismael Mejía',
     'Steffan \'Ruirize\' James',
     'Andras Elso',
+    'Jelle van der Waa',
+    'Marcin Cieślak',
+    'Anton Larionov',
+    'Takuya Tsuchida',
 )
 
 __license__ = 'Public Domain'
@@ -133,7 +137,7 @@ def parseOpts(overrideArguments=None):
 
     def _hide_login_info(opts):
         opts = list(opts)
-        for private_opt in ['-p', '--password', '-u', '--username']:
+        for private_opt in ['-p', '--password', '-u', '--username', '--video-password']:
             try:
                 i = opts.index(private_opt)
                 opts[i+1] = '<PRIVATE>'
@@ -304,6 +308,9 @@ def parseOpts(overrideArguments=None):
     verbosity.add_option('--get-format',
             action='store_true', dest='getformat',
             help='simulate, quiet but print output format', default=False)
+    verbosity.add_option('-j', '--dump-json',
+            action='store_true', dest='dumpjson',
+            help='simulate, quiet but print JSON information', default=False)
     verbosity.add_option('--newline',
             action='store_true', dest='progress_with_newline', help='output progress bar as new lines', default=False)
     verbosity.add_option('--no-progress',
@@ -316,6 +323,9 @@ def parseOpts(overrideArguments=None):
     verbosity.add_option('--dump-intermediate-pages',
             action='store_true', dest='dump_intermediate_pages', default=False,
             help='print downloaded pages to debug problems(very verbose)')
+    verbosity.add_option('--write-pages',
+            action='store_true', dest='write_pages', default=False,
+            help='Write downloaded pages to files in the current directory')
     verbosity.add_option('--youtube-print-sig-code',
             action='store_true', dest='youtube_print_sig_code', default=False,
             help=optparse.SUPPRESS_HELP)
@@ -336,7 +346,8 @@ def parseOpts(overrideArguments=None):
                   '%(uploader)s for the uploader name, %(uploader_id)s for the uploader nickname if different, '
                   '%(autonumber)s to get an automatically incremented number, '
                   '%(ext)s for the filename extension, '
-                  '%(format)s for the format description (like "22 - 1280x720" or "HD")'
+                  '%(format)s for the format description (like "22 - 1280x720" or "HD"),'
+                  '%(format_id)s for the unique id of the format (like Youtube\'s itags: "137"),'
                   '%(upload_date)s for the upload date (YYYYMMDD), '
                   '%(extractor)s for the provider (youtube, metacafe, etc), '
                   '%(id)s for the video id , %(playlist)s for the playlist the video is in, '
@@ -345,7 +356,7 @@ def parseOpts(overrideArguments=None):
                   'for example with -o \'/my/downloads/%(uploader)s/%(title)s-%(id)s.%(ext)s\' .'))
     filesystem.add_option('--autonumber-size',
             dest='autonumber_size', metavar='NUMBER',
-            help='Specifies the number of digits in %(autonumber)s when it is present in output filename template or --autonumber option is given')
+            help='Specifies the number of digits in %(autonumber)s when it is present in output filename template or --auto-number option is given')
     filesystem.add_option('--restrict-filenames',
             action='store_true', dest='restrictfilenames',
             help='Restrict filenames to only ASCII characters, and avoid "&" and spaces in filenames', default=False)
@@ -354,7 +365,7 @@ def parseOpts(overrideArguments=None):
     filesystem.add_option('-w', '--no-overwrites',
             action='store_true', dest='nooverwrites', help='do not overwrite files', default=False)
     filesystem.add_option('-c', '--continue',
-            action='store_true', dest='continue_dl', help='resume partially downloaded files', default=True)
+            action='store_true', dest='continue_dl', help='force resume of partially downloaded files. By default, youtube-dl will resume downloads if possible.', default=True)
     filesystem.add_option('--no-continue',
             action='store_false', dest='continue_dl',
             help='do not resume partially downloaded files (restart from beginning)')
@@ -597,13 +608,12 @@ def _real_main(argv=None):
                      ' file! Use "%%(ext)s" instead of %r' %
                      determine_ext(outtmpl, ''))
 
-    # YoutubeDL
-    ydl = YoutubeDL({
+    ydl_opts = {
         'usenetrc': opts.usenetrc,
         'username': opts.username,
         'password': opts.password,
         'videopassword': opts.videopassword,
-        'quiet': (opts.quiet or opts.geturl or opts.gettitle or opts.getid or opts.getthumbnail or opts.getdescription or opts.getfilename or opts.getformat),
+        'quiet': (opts.quiet or opts.geturl or opts.gettitle or opts.getid or opts.getthumbnail or opts.getdescription or opts.getfilename or opts.getformat or opts.dumpjson),
         'forceurl': opts.geturl,
         'forcetitle': opts.gettitle,
         'forceid': opts.getid,
@@ -611,8 +621,9 @@ def _real_main(argv=None):
         'forcedescription': opts.getdescription,
         'forcefilename': opts.getfilename,
         'forceformat': opts.getformat,
+        'forcejson': opts.dumpjson,
         'simulate': opts.simulate,
-        'skip_download': (opts.skip_download or opts.simulate or opts.geturl or opts.gettitle or opts.getid or opts.getthumbnail or opts.getdescription or opts.getfilename or opts.getformat),
+        'skip_download': (opts.skip_download or opts.simulate or opts.geturl or opts.gettitle or opts.getid or opts.getthumbnail or opts.getdescription or opts.getfilename or opts.getformat or opts.dumpjson),
         'format': opts.format,
         'format_limit': opts.format_limit,
         'listformats': opts.listformats,
@@ -651,6 +662,7 @@ def _real_main(argv=None):
         'prefer_free_formats': opts.prefer_free_formats,
         'verbose': opts.verbose,
         'dump_intermediate_pages': opts.dump_intermediate_pages,
+        'write_pages': opts.write_pages,
         'test': opts.test,
         'keepvideo': opts.keepvideo,
         'min_filesize': opts.min_filesize,
@@ -660,61 +672,63 @@ def _real_main(argv=None):
         'youtube_print_sig_code': opts.youtube_print_sig_code,
         'age_limit': opts.age_limit,
         'download_archive': opts.download_archive,
-        })
+    }
 
-    if opts.verbose:
-        write_string('[debug] youtube-dl version ' + __version__ + '\n')
-        try:
-            sp = subprocess.Popen(
-                ['git', 'rev-parse', '--short', 'HEAD'],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                cwd=os.path.dirname(os.path.abspath(__file__)))
-            out, err = sp.communicate()
-            out = out.decode().strip()
-            if re.match('[0-9a-f]+', out):
-                write_string('[debug] Git HEAD: ' + out + '\n')
-        except:
+    with YoutubeDL(ydl_opts) as ydl:
+        if opts.verbose:
+            write_string('[debug] youtube-dl version ' + __version__ + '\n')
             try:
-                sys.exc_clear()
+                sp = subprocess.Popen(
+                    ['git', 'rev-parse', '--short', 'HEAD'],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    cwd=os.path.dirname(os.path.abspath(__file__)))
+                out, err = sp.communicate()
+                out = out.decode().strip()
+                if re.match('[0-9a-f]+', out):
+                    write_string('[debug] Git HEAD: ' + out + '\n')
             except:
-                pass
-        write_string('[debug] Python version %s - %s' %(platform.python_version(), platform_name()) + '\n')
+                try:
+                    sys.exc_clear()
+                except:
+                    pass
+            write_string('[debug] Python version %s - %s' %
+                         (platform.python_version(), platform_name()) + '\n')
 
-        proxy_map = {}
-        for handler in opener.handlers:
-            if hasattr(handler, 'proxies'):
-                proxy_map.update(handler.proxies)
-        write_string('[debug] Proxy map: ' + compat_str(proxy_map) + '\n')
+            proxy_map = {}
+            for handler in opener.handlers:
+                if hasattr(handler, 'proxies'):
+                    proxy_map.update(handler.proxies)
+            write_string('[debug] Proxy map: ' + compat_str(proxy_map) + '\n')
 
-    ydl.add_default_info_extractors()
+        ydl.add_default_info_extractors()
 
-    # PostProcessors
-    # Add the metadata pp first, the other pps will copy it
-    if opts.addmetadata:
-        ydl.add_post_processor(FFmpegMetadataPP())
-    if opts.extractaudio:
-        ydl.add_post_processor(FFmpegExtractAudioPP(preferredcodec=opts.audioformat, preferredquality=opts.audioquality, nopostoverwrites=opts.nopostoverwrites))
-    if opts.recodevideo:
-        ydl.add_post_processor(FFmpegVideoConvertor(preferedformat=opts.recodevideo))
-    if opts.embedsubtitles:
-        ydl.add_post_processor(FFmpegEmbedSubtitlePP(subtitlesformat=opts.subtitlesformat))
+        # PostProcessors
+        # Add the metadata pp first, the other pps will copy it
+        if opts.addmetadata:
+            ydl.add_post_processor(FFmpegMetadataPP())
+        if opts.extractaudio:
+            ydl.add_post_processor(FFmpegExtractAudioPP(preferredcodec=opts.audioformat, preferredquality=opts.audioquality, nopostoverwrites=opts.nopostoverwrites))
+        if opts.recodevideo:
+            ydl.add_post_processor(FFmpegVideoConvertor(preferedformat=opts.recodevideo))
+        if opts.embedsubtitles:
+            ydl.add_post_processor(FFmpegEmbedSubtitlePP(subtitlesformat=opts.subtitlesformat))
 
-    # Update version
-    if opts.update_self:
-        update_self(ydl.to_screen, opts.verbose)
+        # Update version
+        if opts.update_self:
+            update_self(ydl.to_screen, opts.verbose)
 
-    # Maybe do nothing
-    if len(all_urls) < 1:
-        if not opts.update_self:
-            parser.error('you must provide at least one URL')
-        else:
-            sys.exit()
+        # Maybe do nothing
+        if len(all_urls) < 1:
+            if not opts.update_self:
+                parser.error('you must provide at least one URL')
+            else:
+                sys.exit()
 
-    try:
-        retcode = ydl.download(all_urls)
-    except MaxDownloadsReached:
-        ydl.to_screen('--max-download limit reached, aborting.')
-        retcode = 101
+        try:
+            retcode = ydl.download(all_urls)
+        except MaxDownloadsReached:
+            ydl.to_screen('--max-download limit reached, aborting.')
+            retcode = 101
 
     # Dump cookie jar if requested
     if opts.cookiefile is not None:

@@ -16,7 +16,8 @@ class PornotubeIE(InfoExtractor):
         'md5': '374dd6dcedd24234453b295209aa69b6',
         'info_dict': {
             "upload_date": "20090708", 
-            "title": "Marilyn-Monroe-Bathing"
+            "title": "Marilyn-Monroe-Bathing",
+            "age_limit": 18
         }
     }
 
