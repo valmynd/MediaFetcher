@@ -9,7 +9,8 @@ class ClipBoardProcess(QueueProcess):
 		QueueProcess.__init__(self, task_queue, result_queue, function=self.extract)
 
 	def extract(self, url):
-		self.Plugins[0].extract(url)
+		print("PLUGINS:", self.Plugins)
+		self.Plugins[0](self).extract(url)
 
 
 class ClipBoardPool(QueuePool):

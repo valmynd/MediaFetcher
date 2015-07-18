@@ -11,14 +11,14 @@ ___license___ = "GPL v3"
 class ClipBoardModel(QueueModel):
 	def __init__(self, main_window, qsettings_object):
 		QueueModel.__init__(self, main_window, qsettings_object, "clipboard.xml")
-		#self.queue = Queue()
-		#self.pool = Pool(processes=2, initializer=pool_init, initargs=(self.queue,))
+		# self.queue = Queue()
+		# self.pool = Pool(processes=2, initializer=pool_init, initargs=(self.queue,))
 		self.pool = ClipBoardPool(callback=self.handleProgress)
 		main_window.aboutToQuit.connect(self.pool.shutdown)
 
 	def _init_internal_dict(self):
 		# this variant of ElementTreeModel has additional dicts to manage:
-		self.combo_boxes_format = {}   # format (=extension) combobox for each item
+		self.combo_boxes_format = {}  # format (=extension) combobox for each item
 		self.combo_boxes_quality = {}  # quality combobox for each item
 		QueueModel._init_internal_dict(self)
 
@@ -26,7 +26,7 @@ class ClipBoardModel(QueueModel):
 		QueueModel._add_to_internal_dict(self, element, parent, num_row)
 		if element.tag == "item":
 			# each row gets one combobox for the extension and one for the quality options
-			format_combobox = QComboBox()   # see ComboBoxDelegate.createEditor()
+			format_combobox = QComboBox()  # see ComboBoxDelegate.createEditor()
 			quality_combobox = QComboBox()  # see ComboBoxDelegate.createEditor()
 			self.combo_boxes_format[element] = format_combobox
 			self.combo_boxes_quality[element] = quality_combobox
@@ -82,7 +82,7 @@ class ClipBoardModel(QueueModel):
 	def addURL(self, url):
 		""" add URL to queue -> add temporary item that will be replaced when the information is fetched """
 		self.addElement(etree.Element('task', url=url, status="Extracting"))
-		#self.pool.apply_async(func=extract_url, args=(url,))
+		# self.pool.apply_async(func=extract_url, args=(url,))
 		self.pool.add_task(url)
 
 	def handleProgress(self, url, result, failed, finished):
@@ -93,6 +93,7 @@ class ClipBoardModel(QueueModel):
 			self.setData(index, str(result), Qt.EditRole)
 			return
 		self.removeRow(num_row)
+		#print(result)
 		element = etree.fromstring(result)
 		self.addElement(element)
 

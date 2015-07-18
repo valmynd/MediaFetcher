@@ -2,7 +2,7 @@
 from multiprocessing import Process, SimpleQueue, Event
 from PySide.QtCore import *
 from PySide.QtGui import *
-import os
+import os, sys
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
@@ -24,10 +24,11 @@ class QueueProcess(Process):
 	@staticmethod
 	def load_plugins():
 		# load plugins from plugin directory (needs to be called when the process is using the plugin mechanism)
-		filenames = os.listdir(os.path.dirname(os.path.realpath("../plugins")))
-		modules = [f.replace('.py', '') for f in filenames if f.endswith('.py') and f != '__init__']
-		for module in modules:
-			__import__(module, locals(), globals(), level=1)
+		#filenames = os.listdir(os.path.dirname(os.path.realpath("../plugins")))
+		#modules = [f.replace('.py', '') for f in filenames if f.endswith('.py') and f != '__init__']
+		#for module in modules:
+		#	__import__(module, locals(), globals(), level=1)
+		pass # deprecated; must be inside plugins-folder to work (as for python 3.x)
 
 	def send_result(self, task_id, result_object, is_exception=False, is_ready=False):
 		# always send process name to inform the pool which process is responsible for the task
@@ -73,7 +74,7 @@ def compute(self, num_row):
 			return
 		progress = float(second) / float(random_number) * 100
 		self.send_result(num_row, progress)
-		#if second in (4,5):
+		# if second in (4,5):
 		#	raise Exception("Test Exception")s
 		time.sleep(1)
 	self.send_result(num_row, 100, is_ready=True)
@@ -195,7 +196,7 @@ class TestApp(QMainWindow):
 			self.addTask()
 
 	def closeEvent(self, event):
-		#self.pool.terminate()
+		# self.pool.terminate()
 		self.pool.shutdown()
 
 	def addTask(self):
@@ -215,7 +216,7 @@ class TestApp(QMainWindow):
 		menu.exec_(globalPos)
 
 	def handleProgress(self, num_row, result, failed, finished):
-		#print("received progress of %s at %s" % (result, num_row))
+		# print("received progress of %s at %s" % (result, num_row))
 		label = self.table.cellWidget(num_row, 0)
 		if failed:
 			label.setText(result)

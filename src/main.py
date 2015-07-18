@@ -7,6 +7,7 @@ from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
 from views.settingsview import SettingsDialog, SettingsToolBar, ConfigurableToolBar
 import re
+import plugins # dont remove this line!
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
@@ -134,6 +135,7 @@ class MainWindow(QMainWindow):
 		self.aboutToQuit.connect(self.writeSettings)
 		# monitor Clipboard
 		QApplication.clipboard().dataChanged.connect(self.clipBoardChanged)
+		self.clipboardView.addURL("https://www.youtube.com/watch?v=IsBOoY2zvC0")
 
 	def closeEvent(self, event):
 		# http://qt-project.org/doc/qt-5.0/qtwidgets/qwidget.html#closeEvent
@@ -234,6 +236,5 @@ if __name__ == '__main__':
 	import sys
 
 	app = QApplication(sys.argv)
-	QueueProcess.load_plugins()
 	MainWindow().show()
 	sys.exit(app.exec_())

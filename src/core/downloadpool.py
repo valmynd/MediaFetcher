@@ -10,7 +10,7 @@ class DownloadProcess(QueueProcess):
 
 	def download(self, url, path, filename, download_url, player_url):
 		# TODO: download_url als identifier instead of URL
-		self.Plugins[0].download(url, path, filename, download_url, player_url)
+		self.Plugins[0](self).download(url, path, filename, download_url, player_url)
 
 
 class DownloadPool(QueuePool):
