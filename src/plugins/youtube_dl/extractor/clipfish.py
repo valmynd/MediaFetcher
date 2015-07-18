@@ -1,8 +1,14 @@
+
+
 import re
 import time
 import xml.etree.ElementTree
 
 from .common import InfoExtractor
+from ..utils import (
+    ExtractorError,
+    parse_duration,
+)
 
 
 class ClipfishIE(InfoExtractor):
@@ -10,13 +16,15 @@ class ClipfishIE(InfoExtractor):
 
     _VALID_URL = r'^https?://(?:www\.)?clipfish\.de/.*?/video/(?P<id>[0-9]+)/'
     _TEST = {
-        'url': 'http://www.clipfish.de/special/supertalent/video/4028320/supertalent-2013-ivana-opacak-singt-nobodys-perfect/',
-        'file': '4028320.f4v',
-        'md5': '5e38bda8c329fbfb42be0386a3f5a382',
+        'url': 'http://www.clipfish.de/special/game-trailer/video/3966754/fifa-14-e3-2013-trailer/',
+        'md5': '2521cd644e862936cf2e698206e47385',
         'info_dict': {
-            'title': 'Supertalent 2013: Ivana Opacak singt Nobody\'s Perfect',
-            'duration': 399,
-        }
+            'id': '3966754',
+            'ext': 'mp4',
+            'title': 'FIFA 14 - E3 2013 Trailer',
+            'duration': 82,
+        },
+        'skip': 'Blocked in the US'
     }
 
     def _real_extract(self, url):
@@ -25,24 +33,16 @@ class ClipfishIE(InfoExtractor):
 
         info_url = ('http://www.clipfish.de/devxml/videoinfo/%s?ts=%d' %
                     (video_id, int(time.time())))
-        info_xml = self._download_webpage(
+        doc = self._download_xml(
             info_url, video_id, note='Downloading info page')
-        doc = xml.etree.ElementTree.fromstring(info_xml)
         title = doc.find('title').text
         video_url = doc.find('filename').text
+        if video_url is None:
+            xml_bytes = xml.etree.ElementTree.tostring(doc)
+            raise ExtractorError('Cannot find video URL in document %r' %
+                                 xml_bytes)
         thumbnail = doc.find('imageurl').text
-        duration_str = doc.find('duration').text
-        m = re.match(
-            r'^(?P<hours>[0-9]+):(?P<minutes>[0-9]{2}):(?P<seconds>[0-9]{2}):(?P<ms>[0-9]*)$',
-            duration_str)
-        if m:
-            duration = (
-                (int(m.group('hours')) * 60 * 60) +
-                (int(m.group('minutes')) * 60) +
-                (int(m.group('seconds')))
-            )
-        else:
-            duration = None
+        duration = parse_duration(doc.find('duration').text)
 
         return {
             'id': video_id,

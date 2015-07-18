@@ -1,52 +1,56 @@
 # coding: utf-8
 
-import json
+
+
 import re
-import xml.etree.ElementTree
 
 from .common import InfoExtractor
 
 
 class JeuxVideoIE(InfoExtractor):
-    _VALID_URL = r'http://.*?\.jeuxvideo\.com/.*/(.*?)-\d+\.htm'
+    _VALID_URL = r'http://.*?\.jeuxvideo\.com/.*/(.*?)\.htm'
 
-    _TEST = {
+    _TESTS = [{
         'url': 'http://www.jeuxvideo.com/reportages-videos-jeux/0004/00046170/tearaway-playstation-vita-gc-2013-tearaway-nous-presente-ses-papiers-d-identite-00115182.htm',
-        'file': '5182.mp4',
         'md5': '046e491afb32a8aaac1f44dd4ddd54ee',
         'info_dict': {
-            'title': 'GC 2013 : Tearaway nous présente ses papiers d\'identité',
-            'description': 'Lorsque les développeurs de LittleBigPlanet proposent un nouveau titre, on ne peut que s\'attendre à un résultat original et fort attrayant.\n',
+            'id': '114765',
+            'ext': 'mp4',
+            'title': 'Tearaway : GC 2013 : Tearaway nous présente ses papiers d\'identité',
+            'description': 'Lorsque les développeurs de LittleBigPlanet proposent un nouveau titre, on ne peut que s\'attendre à un résultat original et fort attrayant.',
         },
-    }
+    }, {
+        'url': 'http://www.jeuxvideo.com/videos/chroniques/434220/l-histoire-du-jeu-video-la-saturn.htm',
+        'only_matching': True,
+    }]
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
         title = mobj.group(1)
         webpage = self._download_webpage(url, title)
-        xml_link = self._html_search_regex(
-            r'<param name="flashvars" value="config=(.*?)" />',
+        title = self._html_search_meta('name', webpage)
+        config_url = self._html_search_regex(
+            r'data-src="(/contenu/medias/video.php.*?)"',
             webpage, 'config URL')
-        
-        video_id = self._search_regex(
-            r'http://www\.jeuxvideo\.com/config/\w+/\d+/(.*?)/\d+_player\.xml',
-            xml_link, 'video ID')
+        config_url = 'http://www.jeuxvideo.com' + config_url
 
-        xml_config = self._download_webpage(
-            xml_link, title, 'Downloading XML config')
-        config = xml.etree.ElementTree.fromstring(xml_config.encode('utf-8'))
-        info_json = self._search_regex(
-            r'(?sm)<format\.json>(.*?)</format\.json>',
-            xml_config, 'JSON information')
-        info = json.loads(info_json)['versions'][0]
-        
-        video_url = 'http://video720.jeuxvideo.com/' + info['file']
+        video_id = self._search_regex(
+            r'id=(\d+)',
+            config_url, 'video ID')
+
+        config = self._download_json(
+            config_url, title, 'Downloading JSON config')
+
+        formats = [{
+            'url': source['file'],
+            'format_id': source['label'],
+            'resolution': source['label'],
+        } for source in reversed(config['sources'])]
 
         return {
             'id': video_id,
-            'title': config.find('titre_video').text,
-            'ext': 'mp4',
-            'url': video_url,
+            'title': title,
+            'formats': formats,
             'description': self._og_search_description(webpage),
-            'thumbnail': config.find('image').text,
+            'thumbnail': config.get('image'),
         }

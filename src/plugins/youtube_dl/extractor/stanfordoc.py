@@ -1,14 +1,9 @@
+
+
 import re
-import socket
-import xml.etree.ElementTree
 
 from .common import InfoExtractor
 from ..utils import (
-    compat_http_client,
-    compat_str,
-    compat_urllib_error,
-    compat_urllib_request,
-
     ExtractorError,
     orderedSet,
     unescapeHTML,
@@ -18,22 +13,21 @@ from ..utils import (
 class StanfordOpenClassroomIE(InfoExtractor):
     IE_NAME = 'stanfordoc'
     IE_DESC = 'Stanford Open ClassRoom'
-    _VALID_URL = r'^(?:https?://)?openclassroom.stanford.edu(?P<path>/?|(/MainFolder/(?:HomePage|CoursePage|VideoPage)\.php([?]course=(?P<course>[^&]+)(&video=(?P<video>[^&]+))?(&.*)?)?))$'
+    _VALID_URL = r'https?://openclassroom\.stanford\.edu(?P<path>/?|(/MainFolder/(?:HomePage|CoursePage|VideoPage)\.php([?]course=(?P<course>[^&]+)(&video=(?P<video>[^&]+))?(&.*)?)?))$'
     _TEST = {
         'url': 'http://openclassroom.stanford.edu/MainFolder/VideoPage.php?course=PracticalUnix&video=intro-environment&speed=100',
-        'file': 'PracticalUnix_intro-environment.mp4',
         'md5': '544a9468546059d4e80d76265b0443b8',
         'info_dict': {
-            "title": "Intro Environment"
+            'id': 'PracticalUnix_intro-environment',
+            'ext': 'mp4',
+            'title': 'Intro Environment',
         }
     }
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
-        if mobj is None:
-            raise ExtractorError('Invalid URL: %s' % url)
 
-        if mobj.group('course') and mobj.group('video'): # A specific video
+        if mobj.group('course') and mobj.group('video'):  # A specific video
             course = mobj.group('course')
             video = mobj.group('video')
             info = {
@@ -42,78 +36,56 @@ class StanfordOpenClassroomIE(InfoExtractor):
                 'upload_date': None,
             }
 
-            self.report_extraction(info['id'])
             baseUrl = 'http://openclassroom.stanford.edu/MainFolder/courses/' + course + '/videos/'
             xmlUrl = baseUrl + video + '.xml'
-            try:
-                metaXml = compat_urllib_request.urlopen(xmlUrl).read()
-            except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
-                raise ExtractorError('Unable to download video info XML: %s' % compat_str(err))
-            mdoc = xml.etree.ElementTree.fromstring(metaXml)
+            mdoc = self._download_xml(xmlUrl, info['id'])
             try:
                 info['title'] = mdoc.findall('./title')[0].text
                 info['url'] = baseUrl + mdoc.findall('./videoFile')[0].text
             except IndexError:
                 raise ExtractorError('Invalid metadata XML file')
-            info['ext'] = info['url'].rpartition('.')[2]
-            return [info]
-        elif mobj.group('course'): # A course page
+            return info
+        elif mobj.group('course'):  # A course page
             course = mobj.group('course')
             info = {
                 'id': course,
-                'type': 'playlist',
+                '_type': 'playlist',
                 'uploader': None,
                 'upload_date': None,
             }
 
-            coursepage = self._download_webpage(url, info['id'],
-                                        note='Downloading course info page',
-                                        errnote='Unable to download course info page')
+            coursepage = self._download_webpage(
+                url, info['id'],
+                note='Downloading course info page',
+                errnote='Unable to download course info page')
 
-            info['title'] = self._html_search_regex('<h1>([^<]+)</h1>', coursepage, 'title', default=info['id'])
+            info['title'] = self._html_search_regex(
+                r'<h1>([^<]+)</h1>', coursepage, 'title', default=info['id'])
 
-            info['description'] = self._html_search_regex('<description>([^<]+)</description>',
+            info['description'] = self._html_search_regex(
+                r'(?s)<description>([^<]+)</description>',
                 coursepage, 'description', fatal=False)
 
             links = orderedSet(re.findall('<a href="(VideoPage.php\?[^"]+)">', coursepage))
-            info['list'] = [
-                {
-                    'type': 'reference',
-                    'url': 'http://openclassroom.stanford.edu/MainFolder/' + unescapeHTML(vpage),
-                }
-                    for vpage in links]
-            results = []
-            for entry in info['list']:
-                assert entry['type'] == 'reference'
-                results += self.extract(entry['url'])
-            return results
-        else: # Root page
+            info['entries'] = [self.url_result(
+                'http://openclassroom.stanford.edu/MainFolder/%s' % unescapeHTML(l)
+            ) for l in links]
+            return info
+        else:  # Root page
             info = {
                 'id': 'Stanford OpenClassroom',
-                'type': 'playlist',
+                '_type': 'playlist',
                 'uploader': None,
                 'upload_date': None,
             }
-
-            self.report_download_webpage(info['id'])
-            rootURL = 'http://openclassroom.stanford.edu/MainFolder/HomePage.php'
-            try:
-                rootpage = compat_urllib_request.urlopen(rootURL).read()
-            except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
-                raise ExtractorError('Unable to download course info page: ' + compat_str(err))
-
             info['title'] = info['id']
 
-            links = orderedSet(re.findall('<a href="(CoursePage.php\?[^"]+)">', rootpage))
-            info['list'] = [
-                {
-                    'type': 'reference',
-                    'url': 'http://openclassroom.stanford.edu/MainFolder/' + unescapeHTML(cpage),
-                }
-                    for cpage in links]
+            rootURL = 'http://openclassroom.stanford.edu/MainFolder/HomePage.php'
+            rootpage = self._download_webpage(rootURL, info['id'],
+                                              errnote='Unable to download course info page')
 
-            results = []
-            for entry in info['list']:
-                assert entry['type'] == 'reference'
-                results += self.extract(entry['url'])
-            return results
+            links = orderedSet(re.findall('<a href="(CoursePage.php\?[^"]+)">', rootpage))
+            info['entries'] = [self.url_result(
+                'http://openclassroom.stanford.edu/MainFolder/%s' % unescapeHTML(l)
+            ) for l in links]
+            return info

@@ -1,5 +1,7 @@
 # coding: utf-8
 
+
+
 import re
 import json
 
@@ -7,37 +9,36 @@ from .common import InfoExtractor
 
 
 class TudouIE(InfoExtractor):
-    _VALID_URL = r'(?:http://)?(?:www\.)?tudou\.com/(?:listplay|programs|albumplay)/(?:view|(.+?))/(?:([^/]+)|([^/]+))(?:\.html)?'
+    _VALID_URL = r'https?://(?:www\.)?tudou\.com/(?:listplay|programs(?:/view)?|albumplay)/.*?/(?P<id>[^/?#]+?)(?:\.html)?/?(?:$|[?#])'
     _TESTS = [{
         'url': 'http://www.tudou.com/listplay/zzdE77v6Mmo/2xN2duXMxmw.html',
-        'file': '159448201.f4v',
         'md5': '140a49ed444bd22f93330985d8475fcb',
         'info_dict': {
-            "title": "卡马乔国足开大脚长传冲吊集锦"
+            'id': '159448201',
+            'ext': 'f4v',
+            'title': '卡马乔国足开大脚长传冲吊集锦',
+            'thumbnail': 're:^https?://.*\.jpg$',
         }
-    },
-    {
-        'url': 'http://www.tudou.com/albumplay/TenTw_JgiPM/PzsAs5usU9A.html',
-        'file': 'todo.mp4',
-        'md5': 'todo.mp4',
+    }, {
+        'url': 'http://www.tudou.com/programs/view/ajX3gyhL0pc/',
         'info_dict': {
-            'title': 'todo.mp4',
-        },
-        'add_ie': ['Youku'],
-        'skip': 'Only works from China'
+            'id': '117049447',
+            'ext': 'f4v',
+            'title': 'La Sylphide-Bolshoi-Ekaterina Krysanova & Vyacheslav Lopatin 2012',
+            'thumbnail': 're:^https?://.*\.jpg$',
+        }
     }]
 
-    def _url_for_id(self, id, quality = None):
-        info_url = "http://v2.tudou.com/f?id="+str(id)
+    def _url_for_id(self, id, quality=None):
+        info_url = "http://v2.tudou.com/f?id=" + str(id)
         if quality:
             info_url += '&hd' + quality
         webpage = self._download_webpage(info_url, id, "Opening the info webpage")
-        final_url = self._html_search_regex('>(.+?)</f>',webpage, 'video url')
+        final_url = self._html_search_regex('>(.+?)</f>', webpage, 'video url')
         return final_url
 
     def _real_extract(self, url):
-        mobj = re.match(self._VALID_URL, url)
-        video_id = mobj.group(2)
+        video_id = self._match_id(url)
         webpage = self._download_webpage(url, video_id)
 
         m = re.search(r'vcode:\s*[\'"](.+?)[\'"]', webpage)
@@ -57,7 +58,9 @@ class TudouIE(InfoExtractor):
         segments = json.loads(segs_json)
         # It looks like the keys are the arguments that have to be passed as
         # the hd field in the request url, we pick the higher
-        quality = sorted(segments.keys())[-1]
+        # Also, filter non-number qualities (see issue #3643).
+        quality = sorted([k for k in list(segments.keys()) if k.isdigit()],
+                         key=lambda k: int(k))[-1]
         parts = segments[quality]
         result = []
         len_parts = len(parts)
@@ -67,12 +70,18 @@ class TudouIE(InfoExtractor):
             part_id = part['k']
             final_url = self._url_for_id(part_id, quality)
             ext = (final_url.split('?')[0]).split('.')[-1]
-            part_info = {'id': part_id,
-                          'url': final_url,
-                          'ext': ext,
-                          'title': title,
-                          'thumbnail': thumbnail_url,
-                          }
+            part_info = {
+                'id': '%s' % part_id,
+                'url': final_url,
+                'ext': ext,
+                'title': title,
+                'thumbnail': thumbnail_url,
+            }
             result.append(part_info)
 
-        return result
+        return {
+            '_type': 'multi_video',
+            'entries': result,
+            'id': video_id,
+            'title': title,
+        }

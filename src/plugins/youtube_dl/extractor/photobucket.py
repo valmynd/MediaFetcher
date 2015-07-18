@@ -1,76 +1,46 @@
-import datetime
+
+
 import json
 import re
 
 from .common import InfoExtractor
+from ..compat import compat_urllib_parse_unquote
 
-from ..utils import (
-    ExtractorError,
-)
 
 class PhotobucketIE(InfoExtractor):
-    """Information extractor for photobucket.com."""
-
-    # TODO: the original _VALID_URL was:
-    # r'(?:http://)?(?:[a-z0-9]+\.)?photobucket\.com/.*[\?\&]current=(.*\.flv)'
-    # Check if it's necessary to keep the old extracion process
-    _VALID_URL = r'(?:http://)?(?:[a-z0-9]+\.)?photobucket\.com/.*(([\?\&]current=)|_)(?P<id>.*)\.(?P<ext>(flv)|(mp4))'
-    IE_NAME = 'photobucket'
+    _VALID_URL = r'http://(?:[a-z0-9]+\.)?photobucket\.com/.*(([\?\&]current=)|_)(?P<id>.*)\.(?P<ext>(flv)|(mp4))'
     _TEST = {
         'url': 'http://media.photobucket.com/user/rachaneronas/media/TiredofLinkBuildingTryBacklinkMyDomaincom_zpsc0c3b9fa.mp4.html?filters[term]=search&filters[primary]=videos&filters[secondary]=images&sort=1&o=0',
-        'file': 'zpsc0c3b9fa.mp4',
         'md5': '7dabfb92b0a31f6c16cebc0f8e60ff99',
         'info_dict': {
-            "upload_date": "20130504", 
-            "uploader": "rachaneronas", 
-            "title": "Tired of Link Building? Try BacklinkMyDomain.com!"
+            'id': 'zpsc0c3b9fa',
+            'ext': 'mp4',
+            'timestamp': 1367669341,
+            'upload_date': '20130504',
+            'uploader': 'rachaneronas',
+            'title': 'Tired of Link Building? Try BacklinkMyDomain.com!',
         }
     }
 
     def _real_extract(self, url):
-        # Extract id from URL
         mobj = re.match(self._VALID_URL, url)
-        if mobj is None:
-            raise ExtractorError('Invalid URL: %s' % url)
-
         video_id = mobj.group('id')
-
         video_extension = mobj.group('ext')
 
-        # Retrieve video webpage to extract further information
         webpage = self._download_webpage(url, video_id)
 
         # Extract URL, uploader, and title from webpage
         self.report_extraction(video_id)
-        # We try first by looking the javascript code:
-        mobj = re.search(r'Pb\.Data\.Shared\.put\(Pb\.Data\.Shared\.MEDIA, (?P<json>.*?)\);', webpage)
-        if mobj is not None:
-            info = json.loads(mobj.group('json'))
-            return [{
-                'id':       video_id,
-                'url':      info['downloadUrl'],
-                'uploader': info['username'],
-                'upload_date':  datetime.date.fromtimestamp(info['creationDate']).strftime('%Y%m%d'),
-                'title':    info['title'],
-                'ext':      video_extension,
-                'thumbnail': info['thumbUrl'],
-            }]
-
-        # We try looking in other parts of the webpage
-        video_url = self._search_regex(r'<link rel="video_src" href=".*\?file=([^"]+)" />',
-            webpage, 'video URL')
-
-        mobj = re.search(r'<title>(.*) video by (.*) - Photobucket</title>', webpage)
-        if mobj is None:
-            raise ExtractorError('Unable to extract title')
-        video_title = mobj.group(1).decode('utf-8')
-        video_uploader = mobj.group(2).decode('utf-8')
-
-        return [{
-            'id':       video_id.decode('utf-8'),
-            'url':      video_url.decode('utf-8'),
-            'uploader': video_uploader,
-            'upload_date':  None,
-            'title':    video_title,
-            'ext':      video_extension.decode('utf-8'),
-        }]
+        info_json = self._search_regex(r'Pb\.Data\.Shared\.put\(Pb\.Data\.Shared\.MEDIA, (.*?)\);',
+                                       webpage, 'info json')
+        info = json.loads(info_json)
+        url = compat_urllib_parse_unquote(self._html_search_regex(r'file=(.+\.mp4)', info['linkcodes']['html'], 'url'))
+        return {
+            'id': video_id,
+            'url': url,
+            'uploader': info['username'],
+            'timestamp': info['creationDate'],
+            'title': info['title'],
+            'ext': video_extension,
+            'thumbnail': info['thumbUrl'],
+        }

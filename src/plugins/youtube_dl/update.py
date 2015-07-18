@@ -1,3 +1,5 @@
+
+
 import io
 import json
 import traceback
@@ -7,20 +9,19 @@ import subprocess
 import sys
 from zipimport import zipimporter
 
-from .utils import (
+from .compat import (
     compat_str,
     compat_urllib_request,
 )
+from .utils import make_HTTPS_handler
 from .version import __version__
+
 
 def rsa_verify(message, signature, key):
     from struct import pack
     from hashlib import sha256
-    from sys import version_info
-    def b(x):
-        if version_info[0] == 2: return x
-        else: return x.encode('latin1')
-    assert(type(message) == type(b('')))
+
+    assert isinstance(message, bytes)
     block_size = 0
     n = key[0]
     while n:
@@ -31,21 +32,25 @@ def rsa_verify(message, signature, key):
     while signature:
         raw_bytes.insert(0, pack("B", signature & 0xFF))
         signature >>= 8
-    signature = (block_size - len(raw_bytes)) * b('\x00') + b('').join(raw_bytes)
-    if signature[0:2] != b('\x00\x01'): return False
+    signature = (block_size - len(raw_bytes)) * b'\x00' + b''.join(raw_bytes)
+    if signature[0:2] != b'\x00\x01':
+        return False
     signature = signature[2:]
-    if not b('\x00') in signature: return False
-    signature = signature[signature.index(b('\x00'))+1:]
-    if not signature.startswith(b('\x30\x31\x30\x0D\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20')): return False
+    if b'\x00' not in signature:
+        return False
+    signature = signature[signature.index(b'\x00') + 1:]
+    if not signature.startswith(b'\x30\x31\x30\x0D\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20'):
+        return False
     signature = signature[19:]
-    if signature != sha256(message).digest(): return False
+    if signature != sha256(message).digest():
+        return False
     return True
 
 
 def update_self(to_screen, verbose):
     """Update the program file with the latest version from the repository"""
 
-    UPDATE_URL = "http://rg3.github.io/youtube-dl/update/"
+    UPDATE_URL = "https://rg3.github.io/youtube-dl/update/"
     VERSION_URL = UPDATE_URL + 'LATEST_VERSION'
     JSON_URL = UPDATE_URL + 'versions.json'
     UPDATES_RSA_KEY = (0x9d60ee4d8f805312fdb15a62f87b95bd66177b91df176765d13514a0f1754bcd2057295c5b6f1d35daa6742c3ffc9a82d3e118861c207995a8031e151d863c9927e304576bc80692bc8e094896fcf11b66f3e29e04e3a71e9a11558558acea1840aec37fc396fb6b65dc81a1c4144e03bd1c011de62e3f1357b327d08426fe93, 65537)
@@ -54,11 +59,15 @@ def update_self(to_screen, verbose):
         to_screen('It looks like you installed youtube-dl with a package manager, pip, setup.py or a tarball. Please use that to update.')
         return
 
+    https_handler = make_HTTPS_handler({})
+    opener = compat_urllib_request.build_opener(https_handler)
+
     # Check if there is a new version
     try:
-        newversion = compat_urllib_request.urlopen(VERSION_URL).read().decode('utf-8').strip()
-    except:
-        if verbose: to_screen(compat_str(traceback.format_exc()))
+        newversion = opener.open(VERSION_URL).read().decode('utf-8').strip()
+    except Exception:
+        if verbose:
+            to_screen(compat_str(traceback.format_exc()))
         to_screen('ERROR: can\'t find the current version. Please try again later.')
         return
     if newversion == __version__:
@@ -67,13 +76,14 @@ def update_self(to_screen, verbose):
 
     # Download and check versions info
     try:
-        versions_info = compat_urllib_request.urlopen(JSON_URL).read().decode('utf-8')
+        versions_info = opener.open(JSON_URL).read().decode('utf-8')
         versions_info = json.loads(versions_info)
-    except:
-        if verbose: to_screen(compat_str(traceback.format_exc()))
+    except Exception:
+        if verbose:
+            to_screen(compat_str(traceback.format_exc()))
         to_screen('ERROR: can\'t obtain versions info. Please try again later.')
         return
-    if not 'signature' in versions_info:
+    if 'signature' not in versions_info:
         to_screen('ERROR: the versions file is not signed or corrupted. Aborting.')
         return
     signature = versions_info['signature']
@@ -90,7 +100,7 @@ def update_self(to_screen, verbose):
         to_screen('youtube-dl is up to date (%s)' % __version__)
         return
 
-    to_screen('Updating to version ' + version_id + '...')
+    to_screen('Updating to version ' + version_id + ' ...')
     version = versions_info['versions'][version_id]
 
     print_notes(to_screen, versions_info['versions'])
@@ -114,11 +124,12 @@ def update_self(to_screen, verbose):
             return
 
         try:
-            urlh = compat_urllib_request.urlopen(version['exe'][0])
+            urlh = opener.open(version['exe'][0])
             newcontent = urlh.read()
             urlh.close()
         except (IOError, OSError):
-            if verbose: to_screen(compat_str(traceback.format_exc()))
+            if verbose:
+                to_screen(compat_str(traceback.format_exc()))
             to_screen('ERROR: unable to download latest version')
             return
 
@@ -131,37 +142,40 @@ def update_self(to_screen, verbose):
             with open(exe + '.new', 'wb') as outf:
                 outf.write(newcontent)
         except (IOError, OSError):
-            if verbose: to_screen(compat_str(traceback.format_exc()))
+            if verbose:
+                to_screen(compat_str(traceback.format_exc()))
             to_screen('ERROR: unable to write the new version')
             return
 
         try:
             bat = os.path.join(directory, 'youtube-dl-updater.bat')
             with io.open(bat, 'w') as batfile:
-                batfile.write("""
+                batfile.write('''
 @echo off
 echo Waiting for file handle to be closed ...
 ping 127.0.0.1 -n 5 -w 1000 > NUL
 move /Y "%s.new" "%s" > NUL
 echo Updated youtube-dl to version %s.
 start /b "" cmd /c del "%%~f0"&exit /b"
-                \n""" % (exe, exe, version_id))
+                \n''' % (exe, exe, version_id))
 
             subprocess.Popen([bat])  # Continues to run in the background
             return  # Do not show premature success messages
         except (IOError, OSError):
-            if verbose: to_screen(compat_str(traceback.format_exc()))
+            if verbose:
+                to_screen(compat_str(traceback.format_exc()))
             to_screen('ERROR: unable to overwrite current version')
             return
 
     # Zip unix package
     elif isinstance(globals().get('__loader__'), zipimporter):
         try:
-            urlh = compat_urllib_request.urlopen(version['bin'][0])
+            urlh = opener.open(version['bin'][0])
             newcontent = urlh.read()
             urlh.close()
         except (IOError, OSError):
-            if verbose: to_screen(compat_str(traceback.format_exc()))
+            if verbose:
+                to_screen(compat_str(traceback.format_exc()))
             to_screen('ERROR: unable to download latest version')
             return
 
@@ -174,18 +188,21 @@ start /b "" cmd /c del "%%~f0"&exit /b"
             with open(filename, 'wb') as outf:
                 outf.write(newcontent)
         except (IOError, OSError):
-            if verbose: to_screen(compat_str(traceback.format_exc()))
+            if verbose:
+                to_screen(compat_str(traceback.format_exc()))
             to_screen('ERROR: unable to overwrite current version')
             return
 
     to_screen('Updated youtube-dl. Restart youtube-dl to use the new version.')
 
+
 def get_notes(versions, fromVersion):
     notes = []
-    for v,vdata in sorted(versions.items()):
+    for v, vdata in sorted(versions.items()):
         if v > fromVersion:
             notes.extend(vdata.get('notes', []))
     return notes
+
 
 def print_notes(to_screen, versions, fromVersion=__version__):
     notes = get_notes(versions, fromVersion)

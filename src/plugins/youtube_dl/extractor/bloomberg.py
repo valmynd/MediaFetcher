@@ -1,27 +1,44 @@
+
+
 import re
 
 from .common import InfoExtractor
 
 
 class BloombergIE(InfoExtractor):
-    _VALID_URL = r'https?://www\.bloomberg\.com/video/(?P<name>.+?).html'
+    _VALID_URL = r'https?://www\.bloomberg\.com/news/videos/[^/]+/(?P<id>[^/?#]+)'
 
     _TEST = {
-        'url': 'http://www.bloomberg.com/video/shah-s-presentation-on-foreign-exchange-strategies-qurhIVlJSB6hzkVi229d8g.html',
-        'file': '12bzhqZTqQHmmlA8I-i0NpzJgcG5NNYX.mp4',
+        'url': 'http://www.bloomberg.com/news/videos/b/aaeae121-5949-481e-a1ce-4562db6f5df2',
+        # The md5 checksum changes
         'info_dict': {
+            'id': 'qurhIVlJSB6hzkVi229d8g',
+            'ext': 'flv',
             'title': 'Shah\'s Presentation on Foreign-Exchange Strategies',
-            'description': 'md5:abc86e5236f9f0e4866c59ad36736686',
-        },
-        'params': {
-            # Requires ffmpeg (m3u8 manifest)
-            'skip_download': True,
+            'description': 'md5:a8ba0302912d03d246979735c17d2761',
         },
     }
 
     def _real_extract(self, url):
-        mobj = re.match(self._VALID_URL, url)
-        name = mobj.group('name')
+        name = self._match_id(url)
         webpage = self._download_webpage(url, name)
-        ooyala_url = self._og_search_video_url(webpage)
-        return self.url_result(ooyala_url, ie='Ooyala')
+        video_id = self._search_regex(r'"bmmrId":"(.+?)"', webpage, 'id')
+        title = re.sub(': Video$', '', self._og_search_title(webpage))
+
+        embed_info = self._download_json(
+            'http://www.bloomberg.com/api/embed?id=%s' % video_id, video_id)
+        formats = []
+        for stream in embed_info['streams']:
+            if stream["muxing_format"] == "TS":
+                formats.extend(self._extract_m3u8_formats(stream['url'], video_id))
+            else:
+                formats.extend(self._extract_f4m_formats(stream['url'], video_id))
+        self._sort_formats(formats)
+
+        return {
+            'id': video_id,
+            'title': title,
+            'formats': formats,
+            'description': self._og_search_description(webpage),
+            'thumbnail': self._og_search_thumbnail(webpage),
+        }

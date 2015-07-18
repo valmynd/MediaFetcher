@@ -1,4 +1,6 @@
 # coding: utf-8
+
+
 import re
 
 from .common import InfoExtractor
@@ -10,9 +12,10 @@ class Canalc2IE(InfoExtractor):
 
     _TEST = {
         'url': 'http://www.canalc2.tv/video.asp?idVideo=12163&voir=oui',
-        'file': '12163.mp4',
         'md5': '060158428b650f896c542dfbb3d6487f',
         'info_dict': {
+            'id': '12163',
+            'ext': 'mp4',
             'title': 'Terrasses du Numérique'
         }
     }
@@ -29,9 +32,10 @@ class Canalc2IE(InfoExtractor):
 
         title = self._html_search_regex(
             r'class="evenement8">(.*?)</a>', webpage, 'title')
-        
-        return {'id': video_id,
-                'ext': 'mp4',
-                'url': video_url,
-                'title': title,
-                }
+
+        return {
+            'id': video_id,
+            'ext': 'mp4',
+            'url': video_url,
+            'title': title,
+        }

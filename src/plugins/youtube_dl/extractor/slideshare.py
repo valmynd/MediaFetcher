@@ -1,9 +1,13 @@
+
+
 import re
 import json
 
 from .common import InfoExtractor
-from ..utils import (
+from ..compat import (
     compat_urlparse,
+)
+from ..utils import (
     ExtractorError,
 )
 
@@ -13,10 +17,11 @@ class SlideshareIE(InfoExtractor):
 
     _TEST = {
         'url': 'http://www.slideshare.net/Dataversity/keynote-presentation-managing-scale-and-complexity',
-        'file': '25665706.mp4',
         'info_dict': {
+            'id': '25665706',
+            'ext': 'mp4',
             'title': 'Managing Scale and Complexity',
-            'description': 'This was a keynote presentation at the NoSQL Now! 2013 Conference & Expo (http://www.nosqlnow.com). This presentation was given by Adrian Cockcroft from Netflix',
+            'description': 'This was a keynote presentation at the NoSQL Now! 2013 Conference & Expo (http://www.nosqlnow.com). This presentation was given by Adrian Cockcroft from Netflix.',
         },
     }
 
@@ -25,7 +30,7 @@ class SlideshareIE(InfoExtractor):
         page_title = mobj.group('title')
         webpage = self._download_webpage(url, page_title)
         slideshare_obj = self._search_regex(
-            r'var slideshare_object =  ({.*?}); var user_info =',
+            r'\$\.extend\(slideshare_object,\s*(\{.*?\})\);',
             webpage, 'slideshare object')
         info = json.loads(slideshare_obj)
         if info['slideshow']['type'] != 'video':
@@ -35,6 +40,9 @@ class SlideshareIE(InfoExtractor):
         bucket = info['jsplayer']['video_bucket']
         ext = info['jsplayer']['video_extension']
         video_url = compat_urlparse.urljoin(bucket, doc + '-SD.' + ext)
+        description = self._html_search_regex(
+            r'(?s)<p[^>]+itemprop="description"[^>]*>(.+?)</p>', webpage,
+            'description', fatal=False)
 
         return {
             '_type': 'video',
@@ -43,5 +51,5 @@ class SlideshareIE(InfoExtractor):
             'ext': ext,
             'url': video_url,
             'thumbnail': info['slideshow']['pin_image_url'],
-            'description': self._og_search_description(webpage),
+            'description': description,
         }

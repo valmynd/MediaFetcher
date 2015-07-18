@@ -1,6 +1,7 @@
 # coding: utf-8
+
+
 import re
-import xml.etree.ElementTree
 
 from .common import InfoExtractor
 from ..utils import (
@@ -15,8 +16,9 @@ class TouTvIE(InfoExtractor):
 
     _TEST = {
         'url': 'http://www.tou.tv/30-vies/S04E41',
-        'file': '30-vies_S04E41.mp4',
         'info_dict': {
+            'id': '30-vies_S04E41',
+            'ext': 'mp4',
             'title': '30 vies Saison 4 / Épisode 41',
             'description': 'md5:da363002db82ccbe4dafeb9cab039b09',
             'age_limit': 8,
@@ -40,11 +42,9 @@ class TouTvIE(InfoExtractor):
             r'"idMedia":\s*"([^"]+)"', webpage, 'media ID')
 
         streams_url = 'http://release.theplatform.com/content.select?pid=' + mediaId
-        streams_webpage = self._download_webpage(
+        streams_doc = self._download_xml(
             streams_url, video_id, note='Downloading stream list')
 
-        streams_doc = xml.etree.ElementTree.fromstring(
-            streams_webpage.encode('utf-8'))
         video_url = next(n.text
                          for n in streams_doc.findall('.//choice/url')
                          if '//ad.doubleclick' not in n.text)

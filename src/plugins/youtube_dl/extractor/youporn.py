@@ -1,13 +1,16 @@
+
+
+
 import json
-import os
 import re
 import sys
 
 from .common import InfoExtractor
-from ..utils import (
+from ..compat import (
     compat_urllib_parse_urlparse,
     compat_urllib_request,
-
+)
+from ..utils import (
     ExtractorError,
     unescapeHTML,
     unified_strdate,
@@ -16,25 +19,26 @@ from ..aes import (
     aes_decrypt_text
 )
 
+
 class YouPornIE(InfoExtractor):
-    _VALID_URL = r'^(?:https?://)?(?:www\.)?(?P<url>youporn\.com/watch/(?P<videoid>[0-9]+)/(?P<title>[^/]+))'
+    _VALID_URL = r'^(?P<proto>https?://)(?:www\.)?(?P<url>youporn\.com/watch/(?P<videoid>[0-9]+)/(?P<title>[^/]+))'
     _TEST = {
         'url': 'http://www.youporn.com/watch/505835/sex-ed-is-it-safe-to-masturbate-daily/',
-        'file': '505835.mp4',
-        'md5': '71ec5fcfddacf80f495efa8b6a8d9a89',
         'info_dict': {
-            "upload_date": "20101221", 
-            "description": "Love & Sex Answers: http://bit.ly/DanAndJenn -- Is It Unhealthy To Masturbate Daily?", 
-            "uploader": "Ask Dan And Jennifer", 
-            "title": "Sex Ed: Is It Safe To Masturbate Daily?",
-            "age_limit": 18,
+            'id': '505835',
+            'ext': 'mp4',
+            'upload_date': '20101221',
+            'description': 'Love & Sex Answers: http://bit.ly/DanAndJenn -- Is It Unhealthy To Masturbate Daily?',
+            'uploader': 'Ask Dan And Jennifer',
+            'title': 'Sex Ed: Is It Safe To Masturbate Daily?',
+            'age_limit': 18,
         }
     }
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
         video_id = mobj.group('videoid')
-        url = 'http://www.' + mobj.group('url')
+        url = mobj.group('proto') + 'www.' + mobj.group('url')
 
         req = compat_urllib_request.Request(url)
         req.add_header('Cookie', 'age_verified=1')
@@ -42,10 +46,13 @@ class YouPornIE(InfoExtractor):
         age_limit = self._rta_search(webpage)
 
         # Get JSON parameters
-        json_params = self._search_regex(r'var currentVideo = new Video\((.*)\);', webpage, 'JSON parameters')
+        json_params = self._search_regex(
+            [r'videoJa?son\s*=\s*({.+})',
+             r'var\s+currentVideo\s*=\s*new\s+Video\((.+?)\)[,;]'],
+            webpage, 'JSON parameters')
         try:
             params = json.loads(json_params)
-        except:
+        except ValueError:
             raise ExtractorError('Invalid JSON')
 
         self.report_extraction(video_id)
@@ -61,7 +68,7 @@ class YouPornIE(InfoExtractor):
         # Get all of the links from the page
         DOWNLOAD_LIST_RE = r'(?s)<ul class="downloadList">(?P<download_list>.*?)</ul>'
         download_list_html = self._search_regex(DOWNLOAD_LIST_RE,
-            webpage, 'download list').strip()
+                                                webpage, 'download list').strip()
         LINK_RE = r'<a href="([^"]+)">'
         links = re.findall(LINK_RE, download_list_html)
 
@@ -70,40 +77,38 @@ class YouPornIE(InfoExtractor):
         for encrypted_link in encrypted_links:
             link = aes_decrypt_text(encrypted_link, video_title, 32).decode('utf-8')
             links.append(link)
-        
-        if not links:
-            raise ExtractorError('ERROR: no known formats available for video')
 
         formats = []
         for link in links:
-
             # A link looks like this:
             # http://cdn1.download.youporn.phncdn.com/201210/31/8004515/480p_370k_8004515/YouPorn%20-%20Nubile%20Films%20The%20Pillow%20Fight.mp4?nvb=20121113051249&nva=20121114051249&ir=1200&sr=1200&hash=014b882080310e95fb6a0
             # A path looks like this:
             # /201210/31/8004515/480p_370k_8004515/YouPorn%20-%20Nubile%20Films%20The%20Pillow%20Fight.mp4
             video_url = unescapeHTML(link)
             path = compat_urllib_parse_urlparse(video_url).path
-            extension = os.path.splitext(path)[1][1:]
-            format = path.split('/')[4].split('_')[:2]
+            format_parts = path.split('/')[4].split('_')[:2]
 
-            # size = format[0]
-            # bitrate = format[1]
-            format = "-".join(format)
-            # title = u'%s-%s-%s' % (video_title, size, bitrate)
+            dn = compat_urllib_parse_urlparse(video_url).netloc.partition('.')[0]
+
+            resolution = format_parts[0]
+            height = int(resolution[:-len('p')])
+            bitrate = int(format_parts[1][:-len('k')])
+            format = '-'.join(format_parts) + '-' + dn
 
             formats.append({
                 'url': video_url,
-                'ext': extension,
                 'format': format,
                 'format_id': format,
+                'height': height,
+                'tbr': bitrate,
+                'resolution': resolution,
             })
 
-        # Sort and remove doubles
-        formats.sort(key=lambda format: list([s.zfill(6) for s in format['format'].split('-')]))
-        for i in range(len(formats)-1,0,-1):
-            if formats[i]['format_id'] == formats[i-1]['format_id']:
-                del formats[i]
-        
+        self._sort_formats(formats)
+
+        if not formats:
+            raise ExtractorError('ERROR: no known formats available for video')
+
         return {
             'id': video_id,
             'uploader': video_uploader,
