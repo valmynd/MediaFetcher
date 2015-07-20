@@ -7,8 +7,8 @@
 # http://rg3.github.com/youtube-dl/
 wget -O youtube-dl.zip https://github.com/rg3/youtube-dl/archive/master.zip
 unzip youtube-dl.zip
-2to3 --output-dir=youtube-dl3 -W -n youtube-dl-master/ # transform into py3
-mv youtube-dl3/youtube_dl .
+#2to3 --output-dir=youtube-dl3 -W -n youtube-dl-master/ # transform into py3
+mv youtube-dl-master youtube_dl
 rm -rf youtube-dl*
 # http://wiki.videolan.org/Python_bindings
 #git clone git://git.videolan.org/vlc/bindings/python.git
@@ -17,5 +17,5 @@ rm -rf youtube-dl*
 #rm -rf vlc_py/.git
 #touch vlc_py/__init__.py
 #touch vlc_py/generated/__init__.py
-# http://modeltest-pyside.googlecode.com/
-# wget http://modeltest-pyside.googlecode.com/svn/trunk/ModelTest.py
+# http://modeltest-PyQt5.googlecode.com/
+# wget http://modeltest-PyQt5.googlecode.com/svn/trunk/ModelTest.py

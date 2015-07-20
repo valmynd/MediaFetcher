@@ -1,5 +1,4 @@
-from PySide.QtCore import *
-from PySide.QtGui import *
+from .viewbase import *
 from views.settingsview import QFolderChooser
 import tempfile
 import os
@@ -51,7 +50,7 @@ class ItemInfoWidget(QTextBrowser):
 		self.setMaximumHeight(82)
 		self.setOpenLinks(False)  # thus anchorClicked signal will always be emitted
 		self.anchorClicked.connect(self.linkClicked)
-		#self.setStyleSheet("QTextEdit {background-color: rgba(255, 255, 255, 1);}")
+		# self.setStyleSheet("QTextEdit {background-color: rgba(255, 255, 255, 1);}")
 		self.current_element = None
 
 	def linkClicked(self, qurl):
@@ -65,9 +64,9 @@ class ItemInfoWidget(QTextBrowser):
 			local = "../img/thumbnail_placeholder.png"
 			link = self.link_tmpl % (local, local)
 			txt = self.tmpl % dict(title=self.current_element.get("title", "[No Title Available]"),
-			                       url=self.current_element.get("url", "[No URL Available]"),
-			                       thumbnail=link,
-			                       description=self.current_element.get("description", "[No Description Available]"))
+														 url=self.current_element.get("url", "[No URL Available]"),
+														 thumbnail=link,
+														 description=self.current_element.get("description", "[No Description Available]"))
 			self.setText(txt)
 			self.reload()
 		else:  # open thumbnail path
@@ -78,9 +77,9 @@ class ItemInfoWidget(QTextBrowser):
 		self.current_element = element
 		link = self.load_tmpl % (element.get("thumbnail", "[No Thumbnail Available]"))
 		txt = self.tmpl % dict(title=self.current_element.get("title", "[No Title Available]"),
-		                       url=self.current_element.get("url", "[No URL Available]"),
-		                       thumbnail=link,
-		                       description=self.current_element.get("description", "[No Description Available]"))
+													 url=self.current_element.get("url", "[No URL Available]"),
+													 thumbnail=link,
+													 description=self.current_element.get("description", "[No Description Available]"))
 		self.setText(txt)
 		self.reload()
 
@@ -113,10 +112,10 @@ class InfoBoxDialog(QDialog):
 		layout.addRow(self.folderLabel, self.folderField)
 		layout.addRow(self.fileNameLabel, self.fileNameField)
 		self.fileNameLabel.setToolTip("Filename Template Conventions:\n"
-		                              "%extension% → transform to lowercase (mp4)\n"
-		                              "%EXTENSION% → transform to uppercase (MP4)\n"
-		                              "%exTenSiOn% or something like that → no transformation\n\n"
-		                              "Available Keywords: title, url, host, extension, quality")
+																	"%extension% → transform to lowercase (mp4)\n"
+																	"%EXTENSION% → transform to uppercase (MP4)\n"
+																	"%exTenSiOn% or something like that → no transformation\n\n"
+																	"Available Keywords: title, url, host, extension, quality")
 
 		buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 		buttonbox.accepted.connect(self.submit)

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-from PySide.QtCore import *
-from PySide.QtGui import *
-from core.poolbase import QueueProcess
+
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+
 from models.settingsmodel import SettingsModel
 from views.clipboardview import ClipBoardView
 from views.downloadview import DownloadView
 from views.settingsview import SettingsDialog, SettingsToolBar, ConfigurableToolBar
 import re
-import plugins # dont remove this line!
+from plugins import *  # dont remove this line!
 
 __author__ = "C. Wilhelm"
 ___license___ = "GPL v3"
@@ -50,7 +52,7 @@ class SearchBar(QLineEdit):
 		self.textChanged.connect(self.toggleButton)
 		if callback is not None:
 			self.returnPressed.connect(lambda: callback(self.text()))
-		#self.setFixedHeight(28)
+		# self.setFixedHeight(28)
 		self.setPlaceholderText(" < Search Term or URL >")
 
 	def resizeEvent(self, event):
@@ -113,7 +115,7 @@ class MainToolBar(ConfigurableToolBar):
 
 
 class MainWindow(QMainWindow):
-	aboutToQuit = Signal()
+	aboutToQuit = pyqtSignal()
 
 	def __init__(self):
 		QMainWindow.__init__(self)

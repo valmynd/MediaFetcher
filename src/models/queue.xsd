@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
-		   attributeFormDefault="unqualified">
+					 attributeFormDefault="unqualified">
 	<xs:element name="queue">
 		<xs:annotation>
 			<xs:documentation>Schema used by both Clipboard- and DownloadModel</xs:documentation>

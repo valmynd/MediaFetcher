@@ -39,7 +39,7 @@ class Plugin(object, metaclass=PluginMeta):
 		"""
 		raise NotImplementedError
 
-	def download(self, url, path, filename, download_url, player_url):
+	def download(self, url, path, filename, download_url, player_url, plugin_specific):
 		"""
 		calls send_result() with a dictionary containing the following keys: [...]
 		an implementation of this method shall check for self.interrupt.is_set() periodically

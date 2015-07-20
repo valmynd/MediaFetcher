@@ -1,5 +1,6 @@
+from PyQt5.QtWidgets import QComboBox
+
 from .modelbase import *
-from PySide.QtGui import QComboBox
 from core.clipboardpool import ClipBoardPool
 import json
 import re
@@ -93,7 +94,6 @@ class ClipBoardModel(QueueModel):
 			self.setData(index, str(result), Qt.EditRole)
 			return
 		self.removeRow(num_row)
-		#print(result)
 		element = etree.fromstring(result)
 		self.addElement(element)
 

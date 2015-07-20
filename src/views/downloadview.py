@@ -67,4 +67,4 @@ class DownloadView(QueueTreeView):
 		pass
 
 	def addClipboardElement(self, element):
-		self.model().addElement(element) # forward to model
+		self.model().addElement(element)  # forward to model

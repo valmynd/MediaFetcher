@@ -1,5 +1,6 @@
+from PyQt5.QtWidgets import QProgressBar
+
 from .modelbase import *
-from PySide.QtGui import QProgressBar
 from core.downloadpool import DownloadPool
 from .clipboardmodel import fill_filename_template
 
@@ -10,16 +11,12 @@ ___license___ = "GPL v3"
 class DownloadModel(QueueModel):
 	def __init__(self, main_window, qsettings_object):
 		QueueModel.__init__(self, main_window, qsettings_object, "downloads.xml")
-
-		#self.commandqueue = Queue()  # contains commands such as "abort", "requeue"
-		#self.resultqueue = Queue()   # contains result tuples as such: (url, status, size_written, remote_size)
-		#self.pool = Pool(processes=4, initializer=pool_init, initargs=(self.commandqueue, self.resultqueue,))
 		self.pool = DownloadPool(callback=self.handleProgress)
 		main_window.aboutToQuit.connect(self.pool.shutdown)
 
 	def _init_internal_dict(self):
 		# this variant of ElementTreeModel has additional dicts to manage:
-		self.progress_bars = {}   # progressbar for each item and package
+		self.progress_bars = {}  # progressbar for each item and package
 		self.option_elements = {}  # selected option element for easy access
 		QueueModel._init_internal_dict(self)
 
@@ -43,7 +40,7 @@ class DownloadModel(QueueModel):
 			self.option_elements[element] = option
 			# fill remaining filename template, extension and quality shall not change within DownloadModel
 			mapping = dict(title=element.get("title"), url=element.get("url"), host=element.get("host"),
-			               extension=selected_extension, quality=selected_quality)
+										 extension=selected_extension, quality=selected_quality)
 			element.attrib["filename"] = fill_filename_template(element.attrib["filename"], mapping)
 
 	def data(self, index, role):
@@ -64,9 +61,10 @@ class DownloadModel(QueueModel):
 		for item in self._root.findall("item[@status='Queued']"):
 			item.attrib["status"] = "Progressing"  # TODO: self.dataChanged.emit(index, index)
 			option = self.option_elements[item]
-			#self.pool.apply_async(func=download, args=args)
+			# self.pool.apply_async(func=download, args=args)
 			self.pool.add_task(item.get("url"), item.get("path"), item.get("filename"),
-			                   option.get("download_url"), option.get("download_url"))
+												 option.get("download_url"), option.get("player_url"),
+												 option.get("plugin_specific"))
 
 	def pause(self):
 		pass

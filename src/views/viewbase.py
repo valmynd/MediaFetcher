@@ -1,5 +1,6 @@
-from PySide.QtCore import *
-from PySide.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 from .infoview import InfoBoxDialog
 import json
 
@@ -77,7 +78,7 @@ class QueueTreeView(IntuitiveTreeView):
 		self.infobox = InfoBoxDialog(self, self.model())
 
 		# Other basic configuration
-		#self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
+		# self.setAlternatingRowColors(True) # Somehow doesn't work too well when Delegates are used
 		self.setSelectionBehavior(QAbstractItemView.SelectRows)
 		self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 		self.setDragDropMode(QAbstractItemView.DragDrop)

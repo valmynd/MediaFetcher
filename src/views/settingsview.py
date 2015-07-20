@@ -1,5 +1,4 @@
-from PySide.QtCore import *
-from PySide.QtGui import *
+from .viewbase import *
 import json
 import os
 
@@ -55,7 +54,7 @@ class SettingsWidgetMapper(QDataWidgetMapper):
 		"""
 		num_col = self.settingsModel._keys.index(settings_key)
 		label_text = self.settingsModel._entries[settings_key]
-		#print(num_col, label_text)
+		# print(num_col, label_text)
 		self.addMapping(input_widget, num_col)
 		return QLabel(label_text)
 
@@ -100,15 +99,15 @@ class SettingsDialog(QDialog):
 		self.filenameChooserLabel = self.mapper.map(self.filenameChooser, "DefaultFileName")
 		layout.addRow(self.folderChooserLabel, self.folderChooser)
 		layout.addRow(self.filenameChooserLabel, self.filenameChooser)
-		#group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+		# group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 		self.folderChooserLabel.setToolTip("Select a folder where downloaded files may land by default.\n"
-		                                   "You can set different folders on a per-item basis\n"
-		                                   "in the Clipboard View: Rightclick on Item → Info")
+																			 "You can set different folders on a per-item basis\n"
+																			 "in the Clipboard View: Rightclick on Item → Info")
 		self.filenameChooserLabel.setToolTip("Filename Template Conventions:\n"
-		                                     "%extension% → transform to lowercase (mp4)\n"
-		                                     "%EXTENSION% → transform to uppercase (MP4)\n"
-		                                     "%exTenSiOn% or something like that → no transformation\n\n"
-		                                     "Available Keywords: title, url, host, extension, quality")
+																				 "%extension% → transform to lowercase (mp4)\n"
+																				 "%EXTENSION% → transform to uppercase (MP4)\n"
+																				 "%exTenSiOn% or something like that → no transformation\n\n"
+																				 "Available Keywords: title, url, host, extension, quality")
 		pair = QWidget()
 		pairlayout = QHBoxLayout()
 		pair.setLayout(pairlayout)
@@ -116,9 +115,9 @@ class SettingsDialog(QDialog):
 
 		group = QGroupBox("Preferred File Extensions")
 		group.setToolTip("Prioritize Format Options by dragging them up or\n"
-		                 "down in priority relative to each other, so it will\n"
-		                 "be more likely for the upmost item to be preselected\n"
-		                 "when adding new Items to the Clipboard Queue.")
+										 "down in priority relative to each other, so it will\n"
+										 "be more likely for the upmost item to be preselected\n"
+										 "when adding new Items to the Clipboard Queue.")
 		layout = QFormLayout()
 		group.setLayout(layout)
 		pairlayout.addWidget(group)
@@ -130,12 +129,12 @@ class SettingsDialog(QDialog):
 
 		group = QGroupBox("Preferred Quallity Options")
 		group.setToolTip("Prioritize Quality Options by dragging them up or\n"
-		                 "down in priority relative to each other, so it will\n"
-		                 "be more likely for the upmost item to be preselected\n"
-		                 "when adding new Items to the Clipboard Queue.\n\n"
-		                 "Music Files will always be extracted in the highest\n"
-		                 "available quality. On Youtube, videos with very low\n"
-		                 "resolutions may also have lower audio bitrates.")
+										 "down in priority relative to each other, so it will\n"
+										 "be more likely for the upmost item to be preselected\n"
+										 "when adding new Items to the Clipboard Queue.\n\n"
+										 "Music Files will always be extracted in the highest\n"
+										 "available quality. On Youtube, videos with very low\n"
+										 "resolutions may also have lower audio bitrates.")
 		layout = QFormLayout()
 		group.setLayout(layout)
 		pairlayout.addWidget(group)
@@ -225,7 +224,7 @@ class ConfigurableToolBar(QToolBar):
 
 	def __init__(self, title, main_window):
 		QToolBar.__init__(self, title, main_window)
-		#self.setStyleSheet("QToolBar { border: 0px; }")
+		# self.setStyleSheet("QToolBar { border: 0px; }")
 		self.settings = main_window.settings
 		main_window.aboutToQuit.connect(self.writeSettings)
 		self.setMovable(False)

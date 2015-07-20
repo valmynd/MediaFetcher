@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from PySide.QtCore import *
+from PyQt5.QtCore import *
 import os
 
 
@@ -11,12 +11,12 @@ class SettingsModel(QAbstractTableModel):
 	"""
 
 	_entries = OrderedDict((
-	("DefaultDownloadFolder", "Default Download Folder:"),
-	("DefaultFileName", "Default File Name:"),
-	("DownloadSpeedLimit", "Download Speed Limit:"),
-	("PoolUpdateFrequency", "Update Interval:"),
-	("DownloadProcesses", "Download Processes:"),
-	("ExtractionProcesses", "Extraction Processes:"),
+		("DefaultDownloadFolder", "Default Download Folder:"),
+		("DefaultFileName", "Default File Name:"),
+		("DownloadSpeedLimit", "Download Speed Limit:"),
+		("PoolUpdateFrequency", "Update Interval:"),
+		("DownloadProcesses", "Download Processes:"),
+		("ExtractionProcesses", "Extraction Processes:"),
 	))
 
 	def __init__(self, qsettings_object):
@@ -61,7 +61,7 @@ class SettingsModel(QAbstractTableModel):
 			return False
 		num_col = index.column()
 		key = self._keys[num_col]
-		#print(key, value) # TODO: apply changes on the models!!!
+		# print(key, value) # TODO: apply changes on the models!!!
 		self.settings.setValue(key, value)
 		self.dataChanged.emit(index, index)
 		return True

@@ -1,4 +1,4 @@
-from PySide.QtCore import *
+from PyQt5.QtCore import *
 from xml.etree import ElementTree as etree
 import os
 
@@ -193,7 +193,7 @@ class ElementTreeModel(QAbstractItemModel):
 
 class QueueModel(ElementTreeModel):
 	_columns = ['Filename', 'Path', 'Host', 'Description', 'Thumbnail', 'Title', 'Url',
-	            'Status', 'Extension', 'Quality', 'Progress']
+							'Status', 'Extension', 'Quality', 'Progress']
 
 	def __init__(self, main_window, qsettings_object, name_of_xml_file="queue.xml"):
 		self.settings = qsettings_object
