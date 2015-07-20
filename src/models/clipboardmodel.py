@@ -93,7 +93,6 @@ class ClipBoardModel(QueueModel):
 			self.setData(index, str(result), Qt.EditRole)
 			return
 		self.removeRow(num_row)
-		#print(result)
 		element = etree.fromstring(result)
 		self.addElement(element)
 

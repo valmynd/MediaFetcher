@@ -33,15 +33,16 @@ class YoutubeDLPlugin(Plugin):
 		xml = tostring(item, encoding="unicode")
 		self.send_result(task_id=url, result_object=xml, is_ready=True)
 
-	def download(self, url, path, filename, download_url, player_url):
+	def download(self, url, path, filename, download_url, player_url, plugin_specific):
 
 		def __hook(d):
 			self.send_result(url, d)
 
-		ydl = YoutubeDL(dict(password=None, username=None, format=format, progress_hooks=[__hook],
-		                     nopart=True, noprogress=True, ratelimit=None, retries=10, updatetime=True,
+		destination = os.path.join(path, filename)
+		ydl = YoutubeDL(dict(password=None, username=None, format=plugin_specific, progress_hooks=[__hook],
+		                     nopart=True, noprogress=True, ratelimit=None, retries=10, updatetime=False,
 		                     subtitleslang=None, subtitlesformat="srt", onlysubtitles=False, allsubtitles=False,
-		                     skip_download=False, verbose=False, outtmpl="%(title)s.%(ext)s"))
+		                     skip_download=False, verbose=False, outtmpl=destination))
 		ydl.download([url])
 
 
